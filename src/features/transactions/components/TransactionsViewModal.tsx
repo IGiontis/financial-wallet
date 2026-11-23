@@ -1,4 +1,5 @@
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button } from "reactstrap";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { useTranslation } from "react-i18next";
@@ -222,31 +223,17 @@ export default function TransactionViewModal({
       {(onEdit || onDelete) && (
         <>
           {/* No "Close": the ✕ above closes it, and a third button was one more thing to read. */}
-          <ModalFooter className="justify-content-between">
-            {/* Delete on its own at the left, away from Edit. A goal's or an
-                investment's mirror is changed and deleted from its goal: here it
-                would leave the contribution behind. */}
-            {onDelete ? (
-              <DeleteButton opensConfirm
-                onClick={onDelete}
-                disabled={noDelete}
-              />
-            ) : (
-              <span />
+          {/* Delete far left, away from Edit (rule 15b, `DialogFooter`). A goal's or an
+              investment's mirror is changed and deleted from its goal: here it
+              would leave the contribution behind. */}
+          <DialogFooter remove={onDelete ? <DeleteButton opensConfirm onClick={onDelete} disabled={noDelete} /> : undefined}>
+            {onEdit && (
+              <Button color="primary" onClick={onEdit} disabled={noEdit}>
+                <FiEdit2 size={14} className="me-1" aria-hidden />
+                {t("common.edit")}
+              </Button>
             )}
-            <span className="d-flex gap-2">
-              {onEdit && (
-                <Button
-                  color="primary"
-                  onClick={onEdit}
-                  disabled={noEdit}
-                >
-                  <FiEdit2 size={14} className="me-1" aria-hidden />
-                  {t("common.edit")}
-                </Button>
-              )}
-            </span>
-          </ModalFooter>
+          </DialogFooter>
         </>
       )}
     </Modal>

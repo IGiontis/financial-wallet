@@ -4,7 +4,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { dayToDate, happenedDayError, NOT_IN_FUTURE, toISODay, formatRecordDay } from "../../../shared/utils/dates";
 import { toast } from "react-toastify";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -29,7 +29,8 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
-import { FORM_MODAL } from "../../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { LockNote } from "./LockNote";
 import type { LockState } from "../hooks/useRecordLocks";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
@@ -346,11 +347,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
   return (
     <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="md">
-      <ModalHeader toggle={handleClose}>{t("transactions.editTransaction")}</ModalHeader>
+      {/* Which way the money goes, on the HEADER (rule 15a): it used to wash
+          the whole body, which is where the red and green figures are. */}
+      <ModalHeader className={moneyToneHead(formik.values.type === "income" ? "income" : "expense")} toggle={handleClose}>
+        {t("transactions.editTransaction")}
+      </ModalHeader>
 
-      {/* The same wash the debts dialog uses: the form takes the colour of
-          the answer to the one question that changes everything else on it. */}
-      <ModalBody className={formik.values.type === "income" ? "wash-income" : "wash-expense"}>
+      <ModalBody>
         <WizardSteps steps={steps} current={step} onGo={setStep} />
 
         {/* ── 1. Which category ── */}
@@ -567,13 +570,20 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
       </ModalBody>
 
-      <ModalFooter className="justify-content-between">
-        {step === "category" ? (
-          <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
-        ) : (
-          <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>{t("common.back")}</Button>
-        )}
-
+      {/* Back / Cancel on the left, the way forward on the right (rule 15b, `DialogFooter`). */}
+      <DialogFooter
+        back={
+          step === "category" ? (
+            <Button color="secondary" outline onClick={handleClose}>
+              {t("common.cancel")}
+            </Button>
+          ) : (
+            <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>
+              {t("common.back")}
+            </Button>
+          )
+        }
+      >
         {step === "category" && (
           <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
@@ -581,7 +591,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         {/* «No change, no Save»: opening a record and closing it again never
             offers to save it back unchanged — on the details step or the review. */}
         {(step === "details" || step === "review") && (
-          <div className="d-flex align-items-center gap-2 ms-auto">
+          <div className="d-flex align-items-center gap-2">
             <UnchangedHint show={unchanged} />
             {step === "details" && <Button color="primary" disabled={unchanged || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
             {step === "review" && (
@@ -591,7 +601,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             )}
           </div>
         )}
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

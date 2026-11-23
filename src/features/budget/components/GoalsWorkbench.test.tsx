@@ -34,7 +34,8 @@ const renderAt = (url = "/goals") =>
         screen="goals"
         title="Goals"
         subtitle=""
-        action={null}
+        addLabel="New goal"
+        onAdd={() => {}}
         goals={GOALS}
         load="ready"
         statuses={STATUSES}

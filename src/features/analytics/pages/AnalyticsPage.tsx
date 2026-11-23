@@ -78,6 +78,7 @@ const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
 import { PageShell } from "../../../shared/components/PageShell";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { findCategory } from "../../../shared/utils/categories";
 import { dateFormat } from "../../../shared/utils/dates";
 
@@ -272,12 +273,8 @@ export function AnalyticsPage() {
 
   return (
     <PageShell>
-      <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
-        <div>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("analytics.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("analytics.subtitle")}</p>
-        </div>
-
+      {/* The shared header card; the period is this page's one selector, inside it. */}
+      <PageHeader title={t("analytics.title")} subtitle={t("analytics.subtitle")}>
         <div className={segmented.group}>
           {ANALYTICS_RANGES.map((r) => (
             <button key={r} type="button" disabled={isPending} onClick={() => startTransition(() => setRange(r))} className={`${segmented.item} ${range === r ? segmented.active : ""}`}>
@@ -285,7 +282,7 @@ export function AnalyticsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       {load === "waiting" ? (
         <PageWaiting />

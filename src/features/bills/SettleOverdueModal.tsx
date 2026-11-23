@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Input, Label } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, Input, Label } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { billOverdue, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { dateFormat } from "../../shared/utils/dates";
 
 interface SettleOverdueModalProps {
@@ -53,7 +54,10 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{t("bills.settleOverdueTitle", { name: bill.name })}</ModalHeader>
+      {/* Settling overdue bills is money going out: the red tone on the HEADER (rule 15a). */}
+      <ModalHeader className={moneyToneHead("expense")} toggle={onClose}>
+        {t("bills.settleOverdueTitle", { name: bill.name })}
+      </ModalHeader>
 
       <ModalBody>
         <p className="mb-3" style={{ fontSize: "var(--fs-text)" }}>
@@ -89,14 +93,19 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
         )}
       </ModalBody>
 
-      <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
-          {t("common.cancel")}
-        </Button>
+      {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+      <DialogFooter
+        back={
+          <Button color="secondary" outline onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+        }
+      >
         <Button color="primary" disabled={chosen.length === 0 || guard.locked} onClick={() => onConfirm(chosen)}>
           {t("bills.settleOverdueConfirm", { count: chosen.length })}
         </Button>
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

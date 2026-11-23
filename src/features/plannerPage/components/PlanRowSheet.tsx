@@ -60,7 +60,7 @@ export function PlanRowSheet({
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span className="d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: "var(--fs-lead)" }}>
+        <span className="d-flex align-items-center gap-2 flex-wrap">
           {row.label}
           {group && <span className={styles.sheetGroupChip}>{group}</span>}
         </span>

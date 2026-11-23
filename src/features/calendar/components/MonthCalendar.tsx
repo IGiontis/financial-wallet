@@ -201,7 +201,7 @@ export function MonthCalendar({ month, onMonthChange, now, first, last, titleAs:
       {!phone && selected && (
         <Modal isOpen toggle={() => setPicked(null)} centered scrollable>
           <ModalHeader toggle={() => setPicked(null)}>
-            <span style={{ fontSize: "var(--fs-lead)", textTransform: "capitalize" }}>{dayTitle.format(selected)}</span>
+            <span style={{ textTransform: "capitalize" }}>{dayTitle.format(selected)}</span>
           </ModalHeader>
           <ModalBody>{selectedList ?? <p className={styles.dayHint}>{emptyDay}</p>}</ModalBody>
         </Modal>

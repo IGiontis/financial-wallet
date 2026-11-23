@@ -92,11 +92,15 @@
   min-width: 0;
 }
 
+/* A card's title reads as a title (.claude/rules/ui.md 12, owner 2026-11-19):
+   the app's card-title size — the one a card many to a grid wears
+   (`--stat-card-title-size`, as GoalCard's name) — not a small bold line. It
+   stays a step under `.sectionTitle` above it, which groups these cards. */
 .cardTitle {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: var(--fs-text);
-  font-weight: 600;
+  font-size: var(--stat-card-title-size);
+  font-weight: var(--stat-label-weight);
   line-height: 1.3;
 }
 

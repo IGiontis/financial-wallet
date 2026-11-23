@@ -23,7 +23,7 @@ import { PageTabs } from "../../shared/components/PageTabs";
 import { usePageTab } from "../../shared/hooks/usePageTab";
 import { pageTabIds } from "../../shared/utils/pageTabIds";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { PageWaiting } from "../../shared/components/PageWaiting";
 import { useLoadMore } from "../../shared/hooks/useLoadMore";
@@ -114,7 +114,7 @@ function DebtsList() {
   if (load === "waiting") {
     return (
       <PageShell>
-        <AddHeader label={t("debts.add")} onAdd={() => setAdding(true)} title={t("debts.title")} subtitle={t("debts.subtitle")} />
+        <PageHeader title={t("debts.title")} subtitle={t("debts.subtitle")} addLabel={t("debts.add")} onAdd={() => setAdding(true)} />
         <PageWaiting />
         {adding && <AddDebtModal knownPeople={[]} onClose={() => setAdding(false)} />}
       </PageShell>
@@ -347,18 +347,19 @@ function DebtsList() {
 
   return (
     <PageShell>
-      <AddHeader label={t("debts.add")} onAdd={() => setAdding(true)} title={t("debts.title")} subtitle={t("debts.subtitle")} />
-      <PageTabs
-        base={TABS_BASE}
-        label={t("debts.title")}
-        tabs={[
-          { id: "overview", label: t("debts.tabOverview") },
-          { id: "plan", label: t("debts.tabPlan") },
-          { id: "archive", label: archive.length > 0 ? t("debts.tabArchiveCount", { count: archive.length }) : t("debts.tabArchive") },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      <PageHeader title={t("debts.title")} subtitle={t("debts.subtitle")} addLabel={t("debts.add")} onAdd={() => setAdding(true)}>
+        <PageTabs
+          base={TABS_BASE}
+          label={t("debts.title")}
+          tabs={[
+            { id: "overview", label: t("debts.tabOverview") },
+            { id: "plan", label: t("debts.tabPlan") },
+            { id: "archive", label: archive.length > 0 ? t("debts.tabArchiveCount", { count: archive.length }) : t("debts.tabArchive") },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      </PageHeader>
 
       {tab === "overview" && panel("overview", overview)}
       {tab === "plan" && panel("plan", plan)}

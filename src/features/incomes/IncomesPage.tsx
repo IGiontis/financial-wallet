@@ -47,7 +47,7 @@ import IncomeFormModal from "./components/IncomeFormModal";
 import { ConfirmSheet } from "./components/ConfirmSheet";
 import ThisTimeSheet from "./components/ThisTimeSheet";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { FiBarChart2, FiCalendar, FiGitCommit, FiList } from "react-icons/fi";
 import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
 import styles from "./css/IncomesPage.module.css";
@@ -241,13 +241,13 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     // Every income on the page shows its category's icon (`useIncomeIcon`).
     <IncomeCategoriesContext.Provider value={categories}>
     <PageShell>
-      {/* The add on every view, «Σύνοψη» too. */}
+      {/* The shared header card; the add on every view, «Σύνοψη» too. */}
       {/* Greyed out until the list has come: the incomes are saved as one list, and one
           added to a list not yet read would write over those already there. */}
-      <AddHeader label={t("incomes.new")} onAdd={() => openNew()} disabled={listMissing} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
-
       {/* No link tabs: «Σύνοψη · … · Όλα» are the sidebar's children — one row of tabs or
-          selectors per page, and the views below get the room (owner, 2026-11-17). */}
+          selectors per page, and the views below get the room (owner, 2026-11-17), so this
+          card holds the title alone; the list's view switch stays with the list. */}
+      <PageHeader title={t("incomes.title")} subtitle={t("incomes.subtitle")} addLabel={t("incomes.new")} onAdd={() => openNew()} addDisabled={listMissing} />
 
       {load === "waiting" ? (
         <PageWaiting />

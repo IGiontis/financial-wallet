@@ -6,6 +6,8 @@ import { join, relative } from "node:path";
 // parts a test can see in the source. The rest is the side-by-side screenshots.
 
 const SRC = join(__dirname, "..");
+/** Line endings differ between a checkout and a working tree here (core.autocrlf). */
+const LINES = /\r?\n/;
 
 function files(dir: string, ext: RegExp): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -65,5 +67,22 @@ describe("UI conventions", () => {
   it("only PageTabs wears the page tabs' styles", () => {
     const users = sources.filter(({ text }) => /PageTabs\.module\.css["']/.test(text)).map(({ path }) => path);
     expect(users).toEqual(["shared/components/PageTabs.tsx"]);
+  });
+
+  // One dialog title, one size (rule 16, owner 2026-11-23: he spotted it on the
+  // Planner). Half the dialogs wrapped their title in a `--fs-lead` span, 14px
+  // against the `.modal-title`'s own 20px. The title goes in `<ModalHeader>`
+  // with no size of its own; a wrapper may still carry flex, a gap, an icon or
+  // `textTransform`, and a SECOND line under the title may be smaller
+  // (ArrivedSheet's subtitle), so only the first line of a header is checked.
+  it("no dialog title carries a font size of its own", () => {
+    const sized = sources.flatMap(({ path, text }) =>
+      [...text.matchAll(/<ModalHeader[^>]*>([\s\S]{0,240}?)<\/ModalHeader>/g)].flatMap((m) => {
+        const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
+        const firstLine = m[1].split(LINES).slice(0, 2).join(" ");
+        return /fontSize/.test(openTag) || /fontSize/.test(firstLine) ? [`${path}:${text.slice(0, m.index).split(LINES).length}`] : [];
+      }),
+    );
+    expect(sized).toEqual([]);
   });
 });

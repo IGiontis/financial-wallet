@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
@@ -7,6 +7,7 @@ import { categoryAliases, cleanCategoryName, findScopeDuplicates, firstGrapheme,
 import { matchName } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
 import { RequiredMark } from "../../shared/components/RequiredMark";
@@ -207,15 +208,20 @@ export default function CategoryModal({ existing, scope: initialScope, category,
           </FormGroup>
         </ModalBody>
 
-        <ModalFooter>
-          <UnchangedHint show={unchanged} className="me-auto" />
-          <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
-            {t("common.cancel")}
-          </Button>
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
+              {t("common.cancel")}
+            </Button>
+          }
+        >
+          <UnchangedHint show={unchanged} />
           <Button type="submit" color="primary" disabled={!canSave}>
             {isSaving ? t("common.saving") : category ? t("common.save") : t("categories.create")}
           </Button>
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

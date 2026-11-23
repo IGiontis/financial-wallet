@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
@@ -16,7 +16,8 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import wiz from "../../shared/css/Wizard.module.css";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 
 interface MarkPaidModalProps {
@@ -249,7 +250,8 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>
+      {/* Paying a bill is money going out: the red tone on the HEADER (rule 15a). */}
+      <ModalHeader className={moneyToneHead("expense")} toggle={onClose}>
         {t("bills.pay.title")} · {bill.name}
       </ModalHeader>
 
@@ -261,7 +263,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           else void goTo(STEPS[index + 1]);
         }}
       >
-        <ModalBody className="wash-expense">
+        <ModalBody>
           <WizardSteps steps={STEPS} current={step} onGo={(s) => void goTo(s)} label={(s) => t(`bills.pay.step_${s}`)} large />
           <p className={wizard.prompt}>
             {t(`bills.pay.ask_${step}`)}
@@ -421,16 +423,20 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          {index === 0 ? (
-            <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={isSaving}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            index === 0 ? (
+              <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={isSaving}>
+                ‹ {t("common.back")}
+              </Button>
+            )
+          }
+        >
           {step === "review" ? (
             <Button type="submit" color="primary" disabled={isSaving}>
               {isSaving ? t("common.saving") : t("bills.confirmPaid")}
@@ -440,7 +446,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

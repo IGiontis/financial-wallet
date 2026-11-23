@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Button, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { Category } from "../../../shared/types/IndexTypes";
 import { DateField } from "../../../shared/components/DateField";
@@ -14,7 +14,8 @@ import { draftToIncome, validateAll, validateDraft, type DraftErrors, type Draft
 import { scheduleText, weekdayName, type IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
-import { FORM_MODAL } from "../../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { YesNoChoice } from "../../../shared/components/YesNoChoice";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { EveryPicker } from "../../../shared/components/EveryPicker";
@@ -216,7 +217,10 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{isEdit ? `${incomeIcon(initial, categories)} ${initial.name}` : t("incomes.form.newTitle")}</ModalHeader>
+      {/* An income is money coming in: the green tone on the HEADER (rule 15a). */}
+      <ModalHeader className={moneyToneHead("income")} toggle={onClose}>
+        {isEdit ? `${incomeIcon(initial, categories)} ${initial.name}` : t("incomes.form.newTitle")}
+      </ModalHeader>
 
       <form
         noValidate
@@ -226,7 +230,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
           else goTo(STEPS[index + 1]);
         }}
       >
-        <ModalBody className="wash-income">
+        <ModalBody>
           {/* Across the whole sheet, as on the Transactions form: in the
               header it shrank to the title's width. */}
           <WizardSteps
@@ -473,11 +477,11 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
           )}
         </ModalBody>
 
-        {/* Delete far left, then Back / Cancel; Next / Save alone on the right. */}
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {isEdit && onDelete && <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteLocked} title={deleteReason} />}
-            {view === "what" ? (
+        {/* Delete far left, a rule, then Back / Cancel; Next / Save on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={isEdit && onDelete ? <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteLocked} title={deleteReason} /> : undefined}
+          back={
+            view === "what" ? (
               <Button type="button" color="secondary" outline onClick={onClose}>
                 {t("common.cancel")}
               </Button>
@@ -485,8 +489,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               <Button type="button" color="secondary" outline onClick={() => setView(STEPS[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
+            )
+          }
+        >
           {view === "review" ? (
             <div className="d-flex align-items-center gap-2">
               <UnchangedHint show={unchanged} />
@@ -499,7 +504,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

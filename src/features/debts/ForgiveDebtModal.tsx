@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiGift } from "react-icons/fi";
 import { DateField } from "../../shared/components/DateField";
@@ -7,7 +7,8 @@ import { parseISODay, toISODay, happenedDayError } from "../../shared/utils/date
 import { forgiveness } from "./debtsUtils";
 import { useUpdateDebt } from "./useDebts";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
@@ -67,8 +68,9 @@ export function ForgiveDebtModal({
 
   const content = (
     <>
-      <ModalHeader toggle={working ? undefined : close}>
-        <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
+      {/* The debt's own direction on the HEADER (rule 15a): red for one I owe, green for one owed to me. */}
+      <ModalHeader className={moneyToneHead(borrowed ? "expense" : "income")} toggle={working ? undefined : close}>
+        <span className="d-inline-flex align-items-center gap-2">
           <FiGift aria-hidden /> {t("debts.forgiveTitle")}
         </span>
       </ModalHeader>
@@ -99,14 +101,19 @@ export function ForgiveDebtModal({
           <li>{t("debts.forgiveStays")}</li>
         </ul>
       </ModalBody>
-      <ModalFooter className="justify-content-between">
-        <Button color="secondary" outline onClick={close} disabled={working}>
-          {t("common.cancel")}
-        </Button>
+      {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+      <DialogFooter
+        back={
+          <Button color="secondary" outline onClick={close} disabled={working}>
+            {t("common.cancel")}
+          </Button>
+        }
+      >
         <Button color="primary" onClick={() => void save()} disabled={!when || !!dateError || working} aria-busy={working || undefined}>
           <FiGift size={14} aria-hidden /> {working ? t("common.saving") : t("debts.forgiveConfirm", values)}
         </Button>
-      </ModalFooter>
+      </DialogFooter>
     </>
   );
   if (embedded) return content;

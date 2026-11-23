@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import { FiArrowDownLeft, FiArrowUpRight, FiRepeat } from "react-icons/fi";
 import { SavedCheck } from "./SavedCheck";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
@@ -29,7 +29,8 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
-import { FORM_MODAL } from "../../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead, type MoneyTone } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
 import { dayToDate, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay } from "../../../shared/utils/dates";
 
@@ -149,18 +150,33 @@ function Frame({ asPage, isOpen, onClose, children }: { asPage: boolean; isOpen:
   );
 }
 
-/** The dialog's title bar. A page has its own heading above it, so none here. */
-function FrameHeader({ asPage, onClose, children }: { asPage: boolean; onClose: () => void; children: ReactNode }) {
-  return asPage ? null : <ModalHeader toggle={onClose}>{children}</ModalHeader>;
+/**
+ * The dialog's title bar. A page has its own heading above it, so none here.
+ * `tone` paints the band red or green once the reader has said which way the
+ * money goes (rule 15a): on the HEADER, so the figures in the body stay
+ * readable. A page has no band to paint.
+ */
+function FrameHeader({ asPage, onClose, tone, children }: { asPage: boolean; onClose: () => void; tone?: MoneyTone; children: ReactNode }) {
+  return asPage ? null : (
+    <ModalHeader className={moneyToneHead(tone)} toggle={onClose}>
+      {children}
+    </ModalHeader>
+  );
 }
 
-function FrameBody({ asPage, className, children }: { asPage: boolean; className?: string; children: ReactNode }) {
-  return asPage ? <div className={`${styles.pageBody} ${className ?? ""}`}>{children}</div> : <ModalBody className={className}>{children}</ModalBody>;
+function FrameBody({ asPage, children }: { asPage: boolean; children: ReactNode }) {
+  return asPage ? <div className={styles.pageBody}>{children}</div> : <ModalBody>{children}</ModalBody>;
 }
 
-function FrameFooter({ asPage, children }: { asPage: boolean; children: ReactNode }) {
-  // Back (or Cancel) on the left, the way forward on the right — never the two side by side.
-  return asPage ? <div className={`${styles.pageFooter} ${styles.footerSplit}`}>{children}</div> : <ModalFooter className="justify-content-between">{children}</ModalFooter>;
+function FrameFooter({ asPage, back, children }: { asPage: boolean; back?: ReactNode; children: ReactNode }) {
+  // Back / Cancel on the left, the way forward on the right; a delete would go
+  // first on the left with the rule between them (rule 15b, `DialogFooter`).
+  // This wizard has none.
+  return (
+    <DialogFooter bare={asPage} className={asPage ? styles.pageFooter : undefined} back={back}>
+      {children}
+    </DialogFooter>
+  );
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -185,6 +201,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   // it closes, and the toast says it went in.
   const [saved, setSaved] = useState<TransactionFormValues | null>(null);
   const [isFuelCategory, setIsFuelCategory] = useState(false);
+  /** The kind tile has really been pressed — `type` has a default of its own (rule 15a). */
+  const [typeChosen, setTypeChosen] = useState(false);
   const { t } = useTranslation();
   const { payees } = usePayees();
   // Already in the cache from the page behind the form — no extra read.
@@ -249,6 +267,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         resetForm();
         resetTried();
         setStep("type");
+        setTypeChosen(false);
         setIsFuelCategory(false);
         if (!asPage) onClose();
       } catch {
@@ -298,6 +317,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   // no decision. Back is one tap away, and the step bar goes back further.
   const chooseType = (next: "income" | "expense") => {
     if (next !== formik.values.type) handleTypeChange(next);
+    setTypeChosen(true);
     setStep("category");
   };
 
@@ -310,6 +330,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     formik.resetForm();
     resetTried();
     setStep("type");
+    setTypeChosen(false);
     setIsFuelCategory(false);
     onClose();
   };
@@ -344,20 +365,21 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
   return (
     <Frame asPage={asPage} isOpen={isOpen} onClose={handleClose}>
-      <FrameHeader asPage={asPage} onClose={handleClose}>
+      {/* The header takes the colour of the answer to the one question that
+          changes everything else on this form (rule 15a — it used to be a wash
+          over the whole body, and the body is where the red and green figures
+          are). It turns THE MOMENT the kind tile is pressed (the owner:
+          «πρέπει να πάω στο επόμενο στάδιο για να αλλάξει το header»), which
+          is what `typeChosen` records: `type` starts as "expense" on its own,
+          so the dialog would otherwise open red before the reader had said
+          anything. The flag — not the step — also keeps the colour on while
+          the category is being picked and when step 1 is revisited, where the
+          tile is still the chosen one. It is cleared with the form. */}
+      <FrameHeader asPage={asPage} onClose={handleClose} tone={!saved && typeChosen ? (formik.values.type === "income" ? "income" : "expense") : undefined}>
         {t("transactions.addTransaction")}
       </FrameHeader>
 
-      {/* The same wash the debts dialog uses: the form takes the colour of
-          the answer to the one question that changes everything else on it. */}
-      {/* No wash until the choice has actually been made. `type` starts as
-          "expense", so the whole dialog opened red before the reader had said
-          anything — the form answering its own first question. A category is
-          only ever set after the type step, so it is the signal that the choice
-          is real. */}
-      {/* Back on step 1 the colour goes too: that step is where the choice
-          is made again, and it should not look already made. */}
-      <FrameBody asPage={asPage} className={!saved && step !== "type" && formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
+      <FrameBody asPage={asPage}>
         {saved && (
           <div className={styles.savedPanel} role="status">
             <SavedCheck />
@@ -382,7 +404,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <button
                   key={kind}
                   type="button"
-                  className={`${styles.typeCard} ${kind === "expense" ? styles.typeExpense : styles.typeIncome} ${formik.values.type === kind && formik.values.categoryId ? styles.typeSelected : ""}`}
+                  className={`${styles.typeCard} ${kind === "expense" ? styles.typeExpense : styles.typeIncome} ${typeChosen && formik.values.type === kind ? styles.typeSelected : ""}`}
                   onClick={() => chooseType(kind)}
                 >
                   <span className={styles.typeIcon} aria-hidden>
@@ -604,22 +626,29 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           step, and there is no dialog to cancel out of. The dialog keeps its
           Cancel. */}
       {!(asPage && !saved && step === "type") && (
-      <FrameFooter asPage={asPage}>
-        {saved ? (
-          <>
+      <FrameFooter
+        asPage={asPage}
+        back={
+          saved ? (
             <Button color="secondary" outline onClick={onClose}>
               {t("nav.allTransactions")}
             </Button>
-            <Button color="primary" onClick={() => setSaved(null)}>
-              + {t("nav.newTransaction")}
+          ) : step === "type" ? (
+            <Button color="secondary" outline onClick={handleClose}>
+              {t("common.cancel")}
             </Button>
-          </>
-        ) : step === "type" ? (
-          <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
-        ) : (
-          <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>{t("common.back")}</Button>
+          ) : (
+            <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>
+              {t("common.back")}
+            </Button>
+          )
+        }
+      >
+        {saved && (
+          <Button color="primary" onClick={() => setSaved(null)}>
+            + {t("nav.newTransaction")}
+          </Button>
         )}
-
         {step === "category" && (
           <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}

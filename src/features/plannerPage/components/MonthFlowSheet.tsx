@@ -45,7 +45,7 @@ export function MonthFlowSheet({
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: "var(--fs-lead)" }}>{title}</span>
+        {title}
       </ModalHeader>
       <ModalBody>
         {isSameMonth(monthDate, now) && <p className="small text-body-secondary mb-2">{t("planner.flowFromToday")}</p>}

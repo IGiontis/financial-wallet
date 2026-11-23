@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PageShell } from "../../shared/components/PageShell";
 import { PageTabs } from "../../shared/components/PageTabs";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { pageTabIds } from "../../shared/utils/pageTabIds";
 import CategoryManager from "../categories/CategoryManager";
 import { PayeesTab } from "./PayeesTab";
@@ -41,20 +42,18 @@ export function NamesPage() {
 
   return (
     <PageShell>
-      <div className="mb-3">
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("names.title")}</h1>
-      </div>
-
-      <PageTabs
-        base="names"
-        label={t("names.title")}
-        tabs={[
-          { id: "payees", label: t("names.tabPayees") },
-          { id: "categories", label: t("names.tabCategories") },
-        ]}
-        value={tab}
-        onChange={choose}
-      />
+      <PageHeader title={t("names.title")} subtitle={t("names.subtitle")}>
+        <PageTabs
+          base="names"
+          label={t("names.title")}
+          tabs={[
+            { id: "payees", label: t("names.tabPayees") },
+            { id: "categories", label: t("names.tabCategories") },
+          ]}
+          value={tab}
+          onChange={choose}
+        />
+      </PageHeader>
 
       <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab}>
         {tab === "payees" ? <PayeesTab /> : <CategoryManager />}

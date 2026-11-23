@@ -17,7 +17,7 @@ open Goals (`GoalsWorkbench`) and Debts/Bills in the demo and copy their anatomy
 calling it done, screenshot it beside them (320px and 1366px, light and dark, Greek) and fix
 every difference you can see.
 
-1. `PageShell` → the header: **`AddHeader`** (or GoalsWorkbench's header) — the square «+»
+1. `PageShell` → the header: **`PageHeader`**  — the square «+»
    (`AddButton`, icon only) pinned LEFT, then the `h1.h5` title and the one-line subtitle.
    Never a text button («+ Κάτι») above or below the title.
 2. **Page tabs come straight under the header** — `PageTabs`, the boxed look, the ONE tab look
@@ -43,6 +43,36 @@ every difference you can see.
    then the page's frame and add with `PageWaiting`; never an empty state that isn't true. The
    user should never have to retry anything.
 7. Empty state = an invitation with the page's add, not an apology.
+8. **The page header is the shared card** (owner, 2026-11-19): one `PageHeader` — a soft card with
+   «+» left, title, one-line subtitle, actions right, and the page's ONE row of tabs/selectors inside
+   it. Never a header of a page's own.
+9. **A record with its own history and actions opens as a PAGE**, not a big dialog (owner,
+   2026-11-17 — debts person/loan): title «Section › Name», «‹ Πίσω», its tabs; actions open as a
+   step, never a dialog on a dialog.
+10. **Dense lists offer «Απλό · Κανονικό · Αναλυτικό»** with the shared `DensitySwitch`/`useDensity`
+    (remembered per device). The record's header never changes with density; extra detail goes in
+    the card's foot.
+11. **Inactive tabs / segments / view and density options sit on the white card surface**
+    (`--surface`), never on the page ground; the active one in the brand (owner, 2026-11-19).
+12. **Card titles read as titles**: larger than body text (`.stat-head` / the stat label size), never
+    a small bold line (owner, 2026-11-19).
+13. **Charts carry their scale**: amounts on an axis with dashed horizontal guide lines running across
+    the whole chart, like the cash-flow chart, so a value reads at a glance (owner, 2026-11-19).
+14. **Status is an icon + a word, never colour alone**: ✓ paid/done (green), «!» due but in time
+    (amber), ⚠ late (red), each with an accessible label (owner, 2026-11-17).
+15a. **A dialog's money tone goes on its HEADER, not its body** (owner, 2026-11-19): a dialog about money owed / going out tints its header red, money coming in / owed to me green (the tone tokens); the body stays the normal surface so red and green figures inside stay readable. Everywhere — debts, transactions, transfers, goals.
+15c. **Every wizard review number has explanatory text under it** — MUST, for every existing and future wizard (owner, 2026-11-19): a figure alone is never enough; one short line under it says what it is/how it's made up. Consistent across all wizards — audit existing ones.
+15d. **Money/account pickers never offer a zero-balance card or cash** (owner, 2026-11-19): everywhere money is taken FROM an account (deposits, repayments, expenses tied to a card…), a card/cash at 0,00 is not selectable — current and future forms.
+15b. **Footer layout** (owner, 2026-11-19, corrected 2026-11-23): LEFT slot = delete first (outlined danger, icon), then a thin divider INSIDE that group, then Back/Cancel. RIGHT slot = only the forward actions (Next/Save/Confirm). The divider shows only when the left slot holds two or more buttons, never floating in the gap between the slots. `DialogFooter` is the shared piece.
+15. **View-only vs actions**: a page or tab that only shows (e.g. a month overview) has no edit
+    actions; actions live where the records are managed (owner, 2026-11-19).
+16. **Ένας τίτλος διαλόγου, ένα μέγεθος: ο τίτλος μπαίνει στο `ModalHeader` χωρίς δικό του
+    font-size** (owner, 2026-11-23 — «στον προγραμματισμό ο τίτλος του modal δεν είναι ίδιος με
+    τους άλλους»). Half the dialogs wrapped their title in a `--fs-lead` span, 14px against the
+    `.modal-title`'s own 20px. A wrapper `<span>` may still carry flex, a gap, an icon or
+    `textTransform` — never a size. A second line UNDER the title may be smaller (a subtitle).
+    Long titles wrap, never cut (`.modal-title` is `overflow-wrap: anywhere`, theme.css).
+    `uiConventions.test.ts` fails on an inline `fontSize` in a header's opening tag or first line.
 
 `src/styles/uiConventions.test.ts` enforces what a test can see; the rest is checked by the
 side-by-side screenshots.

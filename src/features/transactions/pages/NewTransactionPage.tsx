@@ -8,6 +8,7 @@ import AddTransactionModal from "../components/AddTransactionModal";
 import TransferWizard from "../components/TransferWizard";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
+import { PageHeader } from "../../../shared/components/PageHeader";
 
 /**
  * «Νέα συναλλαγή» as a page of its own, under Transactions in the menu.
@@ -29,7 +30,10 @@ export function NewTransactionPage() {
 
   return (
     <PageShell className="form-page">
-      <h1 className="h5 fw-semibold text-body-emphasis mb-3">{t(transfer ? "transactions.transfer.title" : "transactions.addTransaction")}</h1>
+      <PageHeader
+        title={t(transfer ? "transactions.transfer.title" : "transactions.addTransaction")}
+        subtitle={t(transfer ? "transactions.newTransferSubtitle" : "transactions.newSubtitle")}
+      />
       {transfer ? (
         <TransferWizard asPage onClose={() => navigate("/transactions")} onBack={() => setTransfer(false)} />
       ) : (

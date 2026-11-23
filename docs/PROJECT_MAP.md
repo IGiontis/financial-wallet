@@ -23,6 +23,8 @@ how things work — see `docs/ARCHITECTURE.md`.
 - `src/i18n/` — i18next setup and `locales/el.json`, `locales/en.json`.
 - `src/lib/` — router, lazy chunks, guards, query client, sync/cache helpers, PWA update.
 - `src/shared/` — reusable `components/`, `hooks/`, `utils/`, `feedback/`, `types/`, `css/`.
+  Every routed page's top is `shared/components/PageHeader.tsx` (the one header card) inside
+  `PageShell`; `pageHeader.convention.test.ts` fails when a page of `APP_PAGES` draws its own.
 - `src/styles/` — `tokens.css` (colours), `shape.css` (sizes, `--fs-*`), `theme.css`, style tests.
 - `src/test/` — Vitest setup (`setup.ts`) and test helpers; `docsMap.test.ts`.
 - `src/assets/` — Vite template leftovers, not imported anywhere.
@@ -159,7 +161,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Page `LegalPage.tsx` (text in `legalContent.ts`); `CookieBanner` (analytics consent), `LegalLinks`, `AgeTermsConsent`, `RecaptchaNotice`.
 
 ### `names` — «Δικαιούχοι & κατηγορίες»
-- Page `NamesPage.tsx` (tabs `payees` → `PayeesTab.tsx`, `categories` → `categories/CategoryManager.tsx`).
+- Page `NamesPage.tsx` (`PageHeader` + tabs `payees` → `PayeesTab.tsx`, `categories` → `categories/CategoryManager.tsx`).
   Layouts (2026-11-16 mockups): payees = compact cards in a grid (2/3/4 per row) with filter chips «Όλοι · Στις
   προτάσεις · Διπλοί»; categories = three columns by type «Έξοδα · Έσοδα · Και τα δύο» (`CategoryColumn`, each
   paged), chips instead of columns on phones. Styles `names/css/Names.module.css`.

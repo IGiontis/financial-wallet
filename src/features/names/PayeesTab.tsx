@@ -203,20 +203,25 @@ export function PayeesTab() {
           ) : (
             <ul className={styles.grid} aria-label={t("names.tabPayees")}>
               {shown.slice(0, limit).map((row) => (
-                // The name takes the card's whole width (a long one wraps at
-                // its spaces, even two to a row at 320px), the count under it;
-                // the ⋮ at the card's foot, beside «στις προτάσεις».
+                // The ⋮ at the card's TOP-right (owner, 2026-11-19), where every
+                // other row keeps it; the name beside it takes the rest of the
+                // width (a long one wraps at its spaces, even two to a row at
+                // 320px) with the count under it, and «στις προτάσεις» at the foot.
                 <li key={row.key} className={`${styles.card} ${flashClass(row.key)}`}>
-                  <span className={styles.cardBody}>
-                    <span className={styles.name}>
-                      <MatchedName name={row.name} query={query} />
+                  <span className={styles.cardTop}>
+                    <span className={styles.cardBody}>
+                      <span className={styles.name}>
+                        <MatchedName name={row.name} query={query} />
+                      </span>
+                      <span className={styles.cardMeta}>{t("names.records", { count: row.count })}</span>
                     </span>
-                    <span className={styles.cardMeta}>{t("names.records", { count: row.count })}</span>
-                  </span>
-                  <span className={styles.cardFoot}>
-                    {row.saved ? <span className={styles.savedMark}>{t("names.savedTag")}</span> : <span aria-hidden />}
                     <RowMenu label={t("names.rowActions", { name: row.name })} entries={entries(row)} />
                   </span>
+                  {row.saved && (
+                    <span className={styles.cardFoot}>
+                      <span className={styles.savedMark}>{t("names.savedTag")}</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

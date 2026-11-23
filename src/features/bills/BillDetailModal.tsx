@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, InputGroup, Row, Col } from "reactstrap";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
 import { FiCheck, FiChevronLeft, FiEdit2, FiFastForward, FiMoreHorizontal, FiPause, FiPlay, FiRotateCcw, FiX } from "react-icons/fi";
@@ -398,13 +399,16 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       {/* «Προβολή»: «Ενέργειες» on the left, the payment on the right, nearest the thumb.
           «Ενέργειες»: delete far left, the way back on the right. */}
       {step === "actions" ? (
-        <ModalFooter className="justify-content-between gap-2">
-          <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />
-          <Button color="secondary" outline onClick={() => setStep("view")} className="text-nowrap">
-            <FiChevronLeft size={15} className="me-1" aria-hidden />
-            {t("common.back")}
-          </Button>
-        </ModalFooter>
+        // Delete far left, a rule, then the way back (rule 15b).
+        <DialogFooter
+          remove={<DeleteButton opensConfirm wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />}
+          back={
+            <Button color="secondary" outline onClick={() => setStep("view")} className="text-nowrap">
+              <FiChevronLeft size={15} className="me-1" aria-hidden />
+              {t("common.back")}
+            </Button>
+          }
+        />
       ) : (
         <ModalFooter className="justify-content-between gap-2">
           <Button color="secondary" outline onClick={() => setStep("actions")} disabled={isBusy} className="text-nowrap">

@@ -59,7 +59,7 @@ import PlanLedger, { type LedgerItem } from "./components/PlanLedger";
 import EntryEditor, { type EntryDraft, type EntryMode } from "./components/EntryEditor";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import styles from "./css/PlannerPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
 import { dateFormat, startOfDay } from "../../shared/utils/dates";
@@ -396,12 +396,12 @@ export function PlannerPage() {
   if (load === "waiting") {
     return (
       <PageShell>
-        <AddHeader
-          label={t("planner.addAmount")}
-          onAdd={addEntry}
-          disabled={plannerMissing}
+        <PageHeader
           title={t("planner.title")}
           subtitle={dateFormat("dayMonthWeekday", lang).format(now)}
+          addLabel={t("planner.addAmount")}
+          onAdd={addEntry}
+          addDisabled={plannerMissing}
         />
         <PageWaiting />
         {editor && (
@@ -614,11 +614,11 @@ export function PlannerPage() {
           ahead is opened to learn. */}
       {/* The «+» adds the planner's own figure: its first step asks money in
           or money out (item 97c). The floating «+» opens the same (`usePageAdd`). */}
-      <AddHeader
-        label={t("planner.addAmount")}
-        onAdd={addEntry}
+      <PageHeader
         title={t("planner.title")}
         subtitle={dateFormat("dayMonthWeekday", lang).format(now)}
+        addLabel={t("planner.addAmount")}
+        onAdd={addEntry}
       />
 
       <Row className="g-3">
@@ -719,7 +719,7 @@ export function PlannerPage() {
       {/* The working behind the tiles. */}
       <Modal isOpen={sheet === "payday"} toggle={() => setSheet(null)} centered scrollable size="lg">
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{t(outlook.known ? "planner.tilePayday" : "planner.tileMonthEnd")}</span>
+          {t(outlook.known ? "planner.tilePayday" : "planner.tileMonthEnd")}
         </ModalHeader>
         <ModalBody>
           <PlannerPaydayCard
@@ -747,7 +747,7 @@ export function PlannerPage() {
       </Modal>
       <Modal isOpen={sheet === "period"} toggle={() => setSheet(null)} centered scrollable size="lg">
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.wholePeriod")}</span>
+          {t("planner.wholePeriod")}
         </ModalHeader>
         <ModalBody>
           <PeriodCard inSheet plan={plan} horizon={horizon} onHorizon={setHorizon} scenario={!fromBanks} formatCurrency={formatCurrency} locale={lang} />
@@ -756,7 +756,7 @@ export function PlannerPage() {
       {/* Answered one by one; with none left there is nothing to show. */}
       <Modal isOpen={sheet === "questions" && unconfirmed.length > 0} toggle={() => setSheet(null)} centered scrollable>
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.questionsTitle")}</span>
+          {t("planner.questionsTitle")}
         </ModalHeader>
         <ModalBody className="d-flex flex-column gap-2">
           {unconfirmed.map((o) => (

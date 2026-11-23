@@ -12,15 +12,30 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/shared/components/PageShell.tsx` — the box every routed page sits in: one width, one padding;
   `narrow` for a form or reading column. Every page, loading state included (`PageShell.test.ts` checks the router).
   Styles: `src/shared/css/PageShell.module.css`.
+- `src/shared/components/PageHeader.tsx` — **THE header of every page** (owner, 2026-11-19, «option Α»):
+  one soft card (the cards' `--surface` + `--border-soft` + `--radius-card` + `--shadow-sm`) holding, in one row,
+  the square icon-only «+» (`addLabel` + `onAdd`, optional, `addDisabled` greys it), the `h1.h5` `title`, the
+  one-line `subtitle` (optional) and an `actions` slot on the right (optional) — plus `backTo` / `backLabel`,
+  the «‹ Πίσω» link a record page needs; and, as `children` INSIDE the same card, the page's ONE row of
+  tabs/selectors (`PageTabs`, a `ViewSwitch`, a `DensitySwitch`, a `GoalPickMenu`). The last control's own
+  bottom margin is taken back, so the card's padding is the gap. Phone-first: the «+» keeps its 44px, the
+  title wraps (never truncates), the actions drop to their own line before anything is squeezed.
+  Reference: `DebtsPage`, `OverviewPage`, `DebtPersonPage` (the back link). Styles:
+  `src/shared/css/PageHeader.module.css`. Tests: `PageHeader.test.tsx`, `pageHeader.convention.test.ts`
+  (every routed page of the signed-in app draws its header with it). Never a header of a page's own.
 - `src/shared/components/AddButton.tsx` — `AddButton` (the square icon-only «+», `label` = aria/title,
-  `small` in a row of small buttons) and `AddHeader` (`label`, `onAdd`, `title`, `subtitle`, `disabled`): «+» pinned
-  left, `h1.h5` title + one-line subtitle. Reference: `DebtsPage`, `BillsPage`. Never a text «+ Κάτι» button.
-- `src/features/budget/components/GoalsWorkbench.tsx` — the Goals/Investments page frame (header with
-  `action={<AddButton/>}`, `PageTabs`, overview/cards/list, `empty`). Use for another goal-like screen.
+  `small` in a row of small buttons). `PageHeader` draws the one in a page's header; use `AddButton`
+  directly only elsewhere (an empty state, a card's own add). Never a text «+ Κάτι» button.
+- `src/features/budget/components/GoalsWorkbench.tsx` — the Goals/Investments page frame (`PageHeader` with
+  `addLabel`/`onAdd` and `PageTabs` inside it, overview/cards/list, `empty`). Use for another goal-like screen.
 - `src/shared/hooks/usePageAdd.ts` — `usePageAdd(label, onAdd)`: tell the floating «+»
   (`src/features/layout/AddFab.tsx`) what this page adds; same words as the page's `AddButton`.
   `src/shared/components/PageAddProvider.tsx` provides it (app shell only).
 - `index.css .stat-head` — a card's/section's title over its figure (hairline under). Not a hand-styled `h6`.
+  Where the hairline and the stacked layout don't fit (a title beside its figure, a card many to a grid), take the
+  SIZES and nothing else: `--stat-label-size` / `--stat-label-weight`, or `--stat-card-title-size` for a card in a
+  grid (`GoalCard` `.bandName`, Analytics' `.cardTitle`, Overview's `Panel`). Never a small bold line
+  (`.claude/rules/ui.md` 12).
 - `src/shared/components/ChartZoom.tsx` — `ZoomButton` (in a chart card header) + `ZoomModal` (end of
   tree): "see it bigger" for any chart. Styles: `src/shared/css/ChartZoom.module.css`.
 
@@ -62,7 +77,25 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 ## Forms & wizards
 
 - `src/shared/components/formModal.ts` — `FORM_MODAL` (`{ backdrop: "static" }`): spread on every `<Modal>`
-  that takes data. Read-only views keep closing on backdrop.
+  that takes data. Read-only views keep closing on backdrop. Also **`moneyToneHead(tone)`** (`MoneyTone` =
+  `"expense" | "income"`) — the class for a money dialog's HEADER band (rule 15a): red for money going out or
+  owed by me, green for money coming in or owed to me; the BODY stays the plain surface so the red and green
+  figures in it stay readable. `<ModalHeader className={moneyToneHead(borrowed ? "expense" : "income")} …>`;
+  nothing passed = a plain header (a transfer, a bank reading, a confirmation). Colours: `styles/theme.css`
+  «A money dialog's tone goes on its HEADER». Replaced the old body wash `.wash-expense`/`.wash-income`
+  (index.css) — **never tint a dialog's body**.
+- `src/shared/components/DialogFooter.tsx` — **THE footer of every dialog and wizard**, three slots:
+  `[🗑 remove] │ [‹ back] ……… [children]`. `remove` (the `DeleteButton`) goes first on the far LEFT, then a
+  thin vertical rule with air on either side, then `back` — the way out of this step (Πίσω / Ακύρωση /
+  Κλείσιμο). `children` are the FORWARD actions (Next / Save / Confirm) and they alone sit on the right;
+  they render in their order, so Save comes last. The rule is drawn only when the left slot really holds
+  two buttons — no `remove`, or `remove` with no `back`, and there is nothing to keep apart (rule 15b: a
+  button flush against the bin gets pressed by mistake). `bare` + `className` draws the same three slots in
+  a plain `<div>` for a wizard laid out as a PAGE (`TransactionWizard.module.css .pageFooter`; reference:
+  `AddTransactionModal`'s `FrameFooter`, `TransferWizard`, `ClosingWizard`). The delete inside it is the bin
+  alone (`iconOnly`) or `wordFromSm`, so the row still fits 320px. Styles:
+  `src/shared/css/DialogFooter.module.css`. Never a `ModalFooter className="justify-content-between"` with a
+  `d-flex gap-2` of a dialog's own.
 - `src/shared/components/modalMotion.ts` — `MODAL_MS` (dialog fade, = `--motion-modal`) and
   `installModalMotion()` (installed once at startup). Use `MODAL_MS` for anything timed to a dialog closing.
 - `src/features/transactions/components/WizardSteps.tsx` — the numbered step rail: `steps`, `current`,
@@ -71,7 +104,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   under 576px a rail of 4+ steps hides them (still each button's name) for one line under the dots,
   «Βήμα 2/5 · Κατηγορία» (`transactions.wizard.stepNow`, 2026-11-17).
 - `src/shared/css/Wizard.module.css` — the review step: `.wizCard` / `.wizRow` (a row that jumps back to its
-  step) / `.wizLabel` / `.wizValue` / `.wizNote` / `.wizStatic`. Not a new review table.
+  step) / `.wizLabel` / `.wizValue` / `.wizNote` / `.wizStatic` / **`.wizSub`** (the short line UNDER a figure
+  that stands on its own, rule 15c — the rows already carry their label beside the figure; reference:
+  `TransactionReviewBody`'s hero amount). Not a new review table.
 - `src/features/transactions/components/css/TransactionWizard.module.css` — the transaction wizard's
   page/step/type-card/saved-panel classes; shared by `MarkPaidModal`, `ContributionWizard`, `GoalDeleteModal`.
 - `src/features/transactions/components/SavedCheck.tsx` — the drawn tick for a wizard's "saved" panel.
@@ -391,6 +426,8 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
 | Colours (roles: `--surface`, `--text`, `--brand`, `--income`, `--expense-text` …; 2 colourways × light/dark) | `src/styles/tokens.css` | `src/styles/contrast.test.ts` (≥ 8:1), `src/styles/noPureColours.test.ts` |
 | Tone tints, chips, `.stat-head`, `.tone-tile` | `src/index.css` («Tones», «Chips») | — |
 | The shared hover/focus of anything clickable: `.hover-card` (wash + edge) / `.hover-row` (wash only, ring inside); a module opts in with `composes: hover-card from global;` — never a `:hover` of its own. Bootstrap `a.card`/`button.card`/`.card[role=button]` get it by themselves. Colours `--hover-wash` / `--hover-edge` (and the bills paid cards `--paid-wash` / `--paid-edge`), stronger in light mode | `src/styles/theme.css` («The shared hover», «Hover and paid») | — |
+| Every one-of-many control's resting option: `--segment-item` (the CARDS' `--surface`, never the page ground — rule 11) + `--segment-item-border` / `--segment-item-hover-border`, the chosen one `--color-segment-active*` / `--view-switch-on*`. ONE pair for `PageTabs`, `Segmented`, `ViewSwitch`, `DensitySwitch`, `YesNoChoice` and the feature copies that read them (`PlannerPage.module.css`, `MobileDateFilter.module.css`) — change it here, not in a module | `src/styles/theme.css` (top, «Tabs, segments…») | `src/styles/contrast.test.ts` (`text-2`/`text` on `surface`) |
+| A money dialog's header band `.tone-head-expense` / `.tone-head-income`, handed out by `moneyToneHead` (rule 15a) | `src/styles/theme.css` («A money dialog's tone goes on its HEADER») | `src/styles/contrast.test.ts` (`text` on «{tone} strong over surface») |
 | Font sizes `--fs-caption…--fs-display`, radius `--radius-*`, spacing `--space-0…8`, shadows, motion `--motion-*` | `src/styles/shape.css` | `src/styles/typeScale.test.ts` (px exceptions listed by name) |
 | Bootstrap wired to tokens; `.row-flash`, `.save-pulse`, `.card-flash` | `src/styles/theme.css` (`@layer theme` for one-class rules) | `src/styles/cssLayers.test.ts` |
 | Layer order `app-important, app-base, bootstrap, theme` | top of `src/index.css` | `src/styles/cssLayers.test.ts` |
@@ -417,9 +454,11 @@ Places that do not use the shared piece today. Do not copy them; fix one when yo
 1. **Hand-made `btn-group`** — `src/features/categories/CategoryModal.tsx:134`: the scope picker
    («Έξοδο / Έσοδο / Και τα δύο») is a Bootstrap `btn-group` of `color="secondary"` buttons (grey active).
    Should be `Segmented.module.css` (`.group .even`).
-2. **Hand-rolled page header** — `src/features/accounts/AccountsPage.tsx:477` `Header` duplicates `AddHeader`
-   markup. `src/features/transactions/pages/TransactionPage.tsx:984`: `AddButton` sits beside the search field,
-   no title header.
+2. **Hand-rolled page header** — fixed 2026-11-19: every routed page of the signed-in app now draws the shared
+   `PageHeader` card (`AccountsPage`'s own `Header` and `AddHeader` are gone; `TransactionPage` has a real title
+   header and no longer keeps an `AddButton` beside the search field). `pageHeader.convention.test.ts` keeps it so.
+   Still outside it on purpose: `LegalPage` (a public document, its own reading layout) and the sign-in /
+   sign-up pages, which sit outside the app shell.
 3. **Hand-rolled confirm dialogs** (no shared confirm; `ConfirmSheet` is the one to reuse/extract):
    `src/features/bills/BillsPage.tsx:1762`, `src/features/accounts/AccountsPage.tsx:495`,
    `src/features/budget/components/InvestmentsShared.tsx:665` (`DeleteConfirmModal`),
@@ -458,6 +497,15 @@ Places that do not use the shared piece today. Do not copy them; fix one when yo
 14. **Dead / damaged** — `src/features/overview/components/MetricCard.tsx` is imported nowhere (and formats
     with `toLocaleString`, `:13`); `src/features/overview/pages/css/OverviewPage.module.css:1` and other
     comment rules in it are mojibake.
-15. **An underline strip as a filter** — `src/features/budget/components/InvestmentsShared.tsx:745`
+15. **Footers still laid out by hand** (rule 15b is `DialogFooter`'s now) — the dialogs with nothing to
+    delete that a page owns or that are two-row by design: `src/features/accounts/CheckInModal.tsx:179`
+    (`ModalFooter className="d-block"`, the answer line over two half-width buttons — nothing to keep apart),
+    and the hand-rolled confirms of #3 above (`BillsPage`, `AccountsPage`, `InvestmentsShared`
+    `DeleteConfirmModal`, `TransactionPage`), `ConfirmSheet`, `GoalDeleteModal`, `EditReadingModal`,
+    `MonthBreakdownModal`, `CustomRangeModal`, `HorizonPicker`, `LineSpendSheet`, `PlanRowSheet`,
+    `CategoryMergeModal`, `BusinessesTab`, `CategoryManager`, `PayeesTab`, `WelcomeTour`, the Settings
+    sheets. None holds a `DeleteButton` beside another button, so none breaks the rule; move them to
+    `DialogFooter` when you touch them.
+16. **An underline strip as a filter** — `src/features/budget/components/InvestmentsShared.tsx:745`
     (`HistoryTabBar`, «Όλες · Καταθέσεις · Αναλήψεις» in a goal's history dialog): inline-styled underline
     buttons, no tab roles. A one-of-many filter, so `Segmented.module.css` (or `ViewSwitch`), not `PageTabs`.

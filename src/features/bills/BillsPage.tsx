@@ -6,7 +6,7 @@ import { toneChip } from "../../shared/utils/tone";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { SegmentedBar } from "../../shared/components/SegmentedBar";
 import { FiAlertCircle, FiAlertTriangle, FiBarChart2, FiCalendar, FiCheck, FiChevronRight, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
@@ -1303,12 +1303,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
 
   return (
     <PageShell>
-      {/* Header */}
-      {/* The add on every view, «Σύνοψη» too. */}
-      <AddHeader label={t("bills.newBill")} onAdd={openNew} title={t("bills.title")} subtitle={t("bills.subtitle")} />
-
+      {/* The shared header card. The add on every view, «Σύνοψη» too. */}
       {/* No link tabs: «Σύνοψη · … · Όλα» are the sidebar's children — one row of tabs or
-          selectors per page, and the views below get the room (owner, 2026-11-17). */}
+          selectors per page, and the views below get the room (owner, 2026-11-17), so this
+          card holds the title alone; the list's views and density stay with the list. */}
+      <PageHeader title={t("bills.title")} subtitle={t("bills.subtitle")} addLabel={t("bills.newBill")} onAdd={openNew} />
 
       {load === "waiting" && <PageWaiting />}
 

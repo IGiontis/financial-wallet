@@ -193,6 +193,36 @@ this file disagree, ask him — one of them is a bug.
   key, 10 base-36 characters) so rows stay plain links — no library, no async crypto.
 - **Deleting an OPEN debt erases its money records too** (2026-11-17, he confirmed) — but the confirmation must warn first, prominently: a red warning-triangle icon + a clear text («Σβήνονται και οι κινήσεις του στις Συναλλαγές· αλλάζουν τα υπόλοιπα των καρτών σου») with the amounts per card. Closed debts (archive) always keep their records.
 - **Bills list, refined (2026-11-17):** keep the date-strip look he liked, but ONE CARD PER BILL: header = bill name + total; inside, one row per date/period led by the day block, with a short status text instead of the name («Απλήρωτος · 38,60 €», «Πληρώθηκε · 81,70 €», «Επόμενος …»). A bill with 2 unpaid periods shows both rows. Density word: «Αναλυτικό» (shared with Debts).
+- **Default categories: per-user overrides, shared defaults untouched** (2026-11-19, proposed + agreed): each user may rename, re-icon or hide a built-in category; stored on his user doc (0 reads); hiding one with records asks where to move them. The shared default docs are NOT edited (he dropped the «Ψώνια» icon change — users change icons themselves).
+- **Page header = option Α, a card** (2026-11-19, mockups): one shared PageHeader on every page — a soft card (cards' surface + edge) holding «+» left, title, subtitle, right-side actions, and the page's tabs/selectors INSIDE the same card.
+- **An option not chosen sits on the cards' white** (2026-11-19, rule 11): every tab, segment, view and
+  density option that is NOT selected takes `--surface` — the cards' near-white in daylight, the dark grey in
+  the dark — never the page ground; the chosen one keeps the brand. One pair of tokens does it
+  (`--segment-item` in theme.css), so PageTabs, the segmented control, ViewSwitch and DensitySwitch change
+  together, on a page and inside a dialog alike. *Why:* a beige chip among white cards read as a different
+  kind of thing — the same complaint he made about the unselected yes/no tile. *Don't:* give one control a
+  resting ground of its own.
+- **A money dialog's tone is on its HEADER, never its body** (2026-11-19, rule 15a; his complaint was the
+  debts dialogs): money going out or owed by me wears a red header band, money coming in or owed to me a
+  green one, and the BODY keeps the ordinary dialog surface — a red ground swallowed the red and green
+  FIGURES written on it, which is the one thing those dialogs exist to show. The band is as strong as the
+  body ink allows at 8:1 (`--dialog-tone-wash`, 14% / 18%); nothing on it is lettered in the tone, and a
+  dialog header carries no secondary text (no band reaches 8:1 with it). Handed out by `moneyToneHead`.
+  *Don't:* bring back a wash over a dialog's body (`.wash-expense` / `.wash-income`).
+- **Delete is kept apart in every footer** (2026-11-19, corrected 2026-11-23): the footer has three slots —
+  the bin far LEFT, a thin vertical rule with air on either side, then Back / Cancel; the RIGHT holds only
+  the forward actions (Next / Save / Confirm). The rule belongs to the left group and sits BETWEEN its two
+  buttons, never floating in the empty space between the slots, and it is drawn only when there are two
+  buttons to keep apart. *Why:* the bin was pressed instead of «Πίσω», which stood flush against it.
+  One shared piece does it (`DialogFooter`), not a `justify-content-between` per dialog. *Don't:* move
+  Back/Cancel over to the Save side — that was a first reading of the rule and he corrected it.
+- **Every figure that stands alone on a review step says what it is** (2026-11-19, rule 15c): a short quiet
+  line under it (`Wizard.module.css` `.wizSub`). The review ROWS already carry their label beside the
+  figure, so they satisfy it as they are; this is for a figure on its own — the big amount at the head of
+  the transaction review, the sum drawn on a card.
+- **Bills «Κανονικό» (2026-11-19, he confirmed the mockup):** header as now; middle = the unpaid periods (or the current one when paid) with their day blocks, as now; FOOTER = two boxes side by side, each with a day block — «Προηγούμενος» (date the last bill was paid + amount, green block) and «Επόμενος» (next due date + amount, dashed empty block). «Απλό» has no footer; «Αναλυτικό» adds the three figures and the 6-month strip below. Coloured dots: a general idea for elsewhere.
+- **Goals by year** (2026-11-19): a goal's year comes from its deadline (chip «Στόχος 2028», no new field; an optional year only for goals without a deadline); Goals page gets a year filter; the PLANNER groups goals under their year (sub-groups 2026 · 2027 · 2028 …).
+- **Debt form (2026-11-19):** the goal link is a yes/no «Πήγε σε στόχο;» — only «Ναι» reveals the goal picker (not the «πλήρωσε για μένα» picker shown up front); nothing pre-picked because it links money. «Με τόκο;» ALWAYS starts on «Απλό χρέος» (no interest) — this overrides the earlier «Ναι» default for it.
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles
@@ -232,3 +262,10 @@ change that the demo doesn't show yet adds a line here:
   (2026-11-17): the demo runs them as they are (same `bills` data). In the pass: a late bill, a variable one
   with a range and a paused one in the fixtures so every tag and the red day show; tour steps that pointed at
   the old views or the link tabs («Πληρωμές» tab) need re-pointing at the sidebar / the view switch.
+- Shared page header card (`PageHeader`, 2026-11-19): the demo runs it as it is — no fixture or facade data is
+  involved, every page simply draws the same card now. In the pass: the guided tour's steps that point at a
+  page's title or its tabs («overview-tabs», «goal-views», the tabs of Δουλειά and Χρέη) now sit INSIDE the
+  header card, so each highlight box covers the card — check each step's anchor and wording, and that the
+  tour's own «+» steps still find the «+» (unmoved, still first on the left). `/transactions` gained a real
+  title header and lost the «+» that sat beside its search field: a tour step pointing at that «+» must move
+  to the header's.

@@ -46,7 +46,7 @@ import styles from "./css/AccountsPage.module.css";
 import TransferWizard from "../transactions/components/TransferWizard";
 import { oneRowPerTransfer } from "../transactions/transfers";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
-import { AddButton } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 
 const HISTORY_SHOWN = 6;
 
@@ -123,7 +123,7 @@ export function AccountsPage() {
   if (load === "waiting") {
     return (
       <PageShell>
-        <Header action={<AddButton label={t("accounts.addTitle")} onClick={() => undefined} disabled />} />
+        <PageHeader title={t("accounts.title")} subtitle={t("accounts.subtitle")} addLabel={t("accounts.addTitle")} onAdd={() => undefined} addDisabled />
         <PageWaiting />
       </PageShell>
     );
@@ -194,7 +194,7 @@ export function AccountsPage() {
   if (accounts.length === 0) {
     return (
       <PageShell>
-        <Header />
+        <PageHeader title={t("accounts.title")} subtitle={t("accounts.subtitle")} />
         <Row className="justify-content-center">
           <Col lg={7} xl={6}>
             <Setup
@@ -233,10 +233,8 @@ export function AccountsPage() {
 
   return (
     <PageShell>
-      <Header
-        // The app's one «+» (`AddButton`), its words those the floating «+» says.
-        action={<AddButton label={t("accounts.addTitle")} onClick={() => setEditing("new")} />}
-      />
+      {/* The shared header card; its «+» says the words the floating «+» says. */}
+      <PageHeader title={t("accounts.title")} subtitle={t("accounts.subtitle")} addLabel={t("accounts.addTitle")} onAdd={() => setEditing("new")} />
 
       <Row className="g-3">
         <Col lg={7}>
@@ -501,20 +499,6 @@ export function AccountsPage() {
       )}
       {deleting && <DeleteAccountModal account={deleting} onConfirm={() => deleteAccount(deleting.id)} onClose={() => setDeleting(null)} />}
     </PageShell>
-  );
-}
-
-function Header({ action }: { action?: ReactNode }) {
-  const { t } = useTranslation();
-  return (
-    <div className="d-flex align-items-center mb-3 gap-2">
-      {/* The add pinned left; the title beside it is what wraps. */}
-      {action}
-      <div className="flex-grow-1" style={{ minWidth: 0 }}>
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("accounts.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("accounts.subtitle")}</p>
-      </div>
-    </div>
   );
 }
 

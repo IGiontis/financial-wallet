@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FiChevronLeft } from "react-icons/fi";
 import { PageShell } from "../../shared/components/PageShell";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { PageTabs } from "../../shared/components/PageTabs";
 import { PageWaiting } from "../../shared/components/PageWaiting";
 import { DensitySwitch } from "../../shared/components/DensitySwitch";
@@ -66,10 +65,7 @@ export function DebtPersonPage() {
   if (load === "waiting") {
     return (
       <PageShell>
-        <div className="d-flex align-items-center gap-2 mb-3">
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0 flex-grow-1">{t("debts.title")}</h1>
-          <BackToDebts />
-        </div>
+        <PageHeader title={t("debts.title")} backTo="/debts" />
         <PageWaiting />
       </PageShell>
     );
@@ -79,10 +75,7 @@ export function DebtPersonPage() {
   if (!person || (id && !loan)) {
     return (
       <PageShell>
-        <div className="d-flex align-items-center gap-2 mb-3">
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0 flex-grow-1">{t("debts.title")}</h1>
-          <BackToDebts />
-        </div>
+        <PageHeader title={t("debts.title")} backTo="/debts" />
         <div className={`${styles.card} p-3 p-lg-4`}>
           <p className={styles.sideEmpty}>{t("debts.personNotFound")}</p>
           <Link to="/debts" className="d-inline-block mt-2 fw-semibold">
@@ -93,15 +86,6 @@ export function DebtPersonPage() {
     );
   }
   return <PersonDebts key={id ?? person.person} person={person} loan={loan} knownPeople={people.map((p) => p.person)} />;
-}
-
-function BackToDebts() {
-  const { t } = useTranslation();
-  return (
-    <Link to="/debts" className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 flex-shrink-0 text-nowrap">
-      <FiChevronLeft size={14} aria-hidden /> {t("common.back")}
-    </Link>
-  );
 }
 
 /** The page itself, once it is known whose it is. */
@@ -120,7 +104,6 @@ function PersonDebts({ person, loan, knownPeople }: { person: DebtPerson; loan?:
   const flash = useSavedFlash("debts", useMemo(() => scope.map((d) => d.id), [scope]));
   const open = scope.filter((d) => !d.isSettled);
   const settled = scope.filter((d) => d.isSettled);
-  const back = <BackToDebts />;
 
   const title = loan ? `${person.person} · ${loan.label || t(loan.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}` : person.person;
   const owedByMe = id ? (loan && !loan.isSettled && loan.direction === "owed_by_me" ? loan.remaining : 0) : person.owedByMe;
@@ -181,29 +164,24 @@ function PersonDebts({ person, loan, knownPeople }: { person: DebtPerson; loan?:
   const ids = pageTabIds(TABS_BASE, tab);
   return (
     <PageShell>
-      <div className="d-flex align-items-center gap-2 mb-3">
-        <AddHeader
-          className="flex-grow-1"
-          label={t("debts.newLoanShort")}
-          onAdd={() => setSheet({ kind: "add" })}
-          title={
-            <>
-              <Link to="/debts" className={styles.crumb}>
-                {t("debts.crumb")}
-              </Link>
-              <span aria-hidden> › </span>
-              {title}
-            </>
-          }
-          subtitle={subtitle}
-        />
-        {back}
-      </div>
-
-      {id ? (
-        <div className={styles.panel}>{list}</div>
-      ) : (
-        <>
+      {/* «Χρέη › Δέσποινα» in the shared header card, with the way back and —
+          a person's page, not a single loan's — its two tabs inside it. */}
+      <PageHeader
+        title={
+          <>
+            <Link to="/debts" className={styles.crumb}>
+              {t("debts.crumb")}
+            </Link>
+            <span aria-hidden> › </span>
+            {title}
+          </>
+        }
+        subtitle={subtitle}
+        addLabel={t("debts.newLoanShort")}
+        onAdd={() => setSheet({ kind: "add" })}
+        backTo="/debts"
+      >
+        {!id && (
           <PageTabs
             base={TABS_BASE}
             label={person.person}
@@ -214,10 +192,15 @@ function PersonDebts({ person, loan, knownPeople }: { person: DebtPerson; loan?:
             value={tab}
             onChange={setTab}
           />
-          <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab} tabIndex={0} className={styles.panel}>
-            {list}
-          </div>
-        </>
+        )}
+      </PageHeader>
+
+      {id ? (
+        <div className={styles.panel}>{list}</div>
+      ) : (
+        <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab} tabIndex={0} className={styles.panel}>
+          {list}
+        </div>
       )}
 
       {sheet?.kind === "repay" && sheetDebt && <RepaymentWizard debt={sheetDebt} suggested={sheet.amount} formatCurrency={formatCurrency} onClose={() => setSheet(null)} />}

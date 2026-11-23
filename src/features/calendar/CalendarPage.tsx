@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { FiChevronRight, FiGitCommit, FiGrid } from "react-icons/fi";
 import { startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { Skeleton, SkeletonPageHeader } from "../../shared/components/Skeletons";
 import { PageWaiting } from "../../shared/components/PageWaiting";
 import { usePageLoad } from "../../shared/hooks/usePageLoad";
@@ -62,8 +63,7 @@ export default function CalendarPage() {
   if (load === "waiting") {
     return (
       <PageShell className={styles.page}>
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("nav.calendar")}</h1>
-        <p className="small text-body-secondary mb-3">{t("calendar.scope")}</p>
+        <PageHeader title={t("nav.calendar")} subtitle={t("calendar.scope")} />
         <PageWaiting />
       </PageShell>
     );
@@ -71,8 +71,9 @@ export default function CalendarPage() {
 
   return (
     <PageShell className={styles.page}>
-      {/* The month as a grid of days, or the same days as a tree, a week to a month at a time. */}
-      <div className="mb-3">
+      {/* The shared header card, with this page's one row inside it: the month as
+          a grid of days, or the same days as a tree, a week to a month at a time. */}
+      <PageHeader title={t("nav.calendar")} subtitle={t("calendar.scope")}>
         <ViewSwitch
           block
           data-tour="calendar-views"
@@ -84,14 +85,10 @@ export default function CalendarPage() {
             { id: "timeline", label: t("calendar.viewTimeline"), icon: FiGitCommit },
           ]}
         />
-      </div>
+      </PageHeader>
 
       {calendarView === "timeline" ? (
-        <>
-          {/* The month view's heading is its month; this one's is the page's own name. */}
-          <h1 className="visually-hidden">{t("nav.calendar")}</h1>
-          <MoneyTimeline side="all" sources={sources} first={first} last={last} formatCurrency={formatCurrency} locale={lang} />
-        </>
+        <MoneyTimeline side="all" sources={sources} first={first} last={last} formatCurrency={formatCurrency} locale={lang} />
       ) : (
         <MonthCalendar
           month={month}
@@ -102,15 +99,14 @@ export default function CalendarPage() {
           data-tour="calendar-grid"
           picked={picked}
           onPick={setPicked}
-          // What it is drawn from, said once: it is not the transactions' calendar.
-          // The key to the colours sits beside it, behind the ⓘ.
+          // The page's own title is the h1 now (`PageHeader`), so the month is an h2.
+          titleAs="h2"
+          // What it is drawn from is said once, in the header's line; what is left
+          // here is the key to the colours, behind the ⓘ.
           scope={
-            <>
-              <p className={styles.scope}>{t("calendar.scope")}</p>
-              <InfoLegend title={t("calendar.keyTitle")} entries={calendarKey(t)}>
-                <p>{t("calendar.keySign")}</p>
-              </InfoLegend>
-            </>
+            <InfoLegend title={t("calendar.keyTitle")} entries={calendarKey(t)}>
+              <p>{t("calendar.keySign")}</p>
+            </InfoLegend>
           }
           totals={{
             in: totals.in,

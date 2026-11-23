@@ -17,7 +17,7 @@ import styles from "./css/Business.module.css";
 // «Οι δουλειές μου» (its own page, /business/manage): one card per business —
 // its name, its income lines in green, its expense lines in red, and the ⋮
 // with «Επεξεργασία» and «Διαγραφή». All of it the user's own, made here from
-// nothing; the page's «+» (its `AddHeader`) adds one. On the user document: no
+// nothing; the page's «+» (in its `PageHeader`) adds one. On the user document: no
 // read of its own.
 
 export function BusinessesTab({ businesses, entries, onAdd, onEdit, onDelete }: { businesses: readonly Business[]; entries: readonly BusinessEntry[]; onAdd: () => void; onEdit: (business: Business) => void; onDelete: (business: Business) => void }) {

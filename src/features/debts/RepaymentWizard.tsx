@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
@@ -14,7 +14,8 @@ import { previewRepayment } from "./debtsUtils";
 import { useRecordRepayment } from "./useDebts";
 import styles from "./css/DebtsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
@@ -129,7 +130,8 @@ export default function RepaymentWizard({
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered scrollable>
-      <ModalHeader toggle={working ? undefined : close}>
+      {/* The debt's own direction on the HEADER (rule 15a): red when I pay back, green when I am paid back. */}
+      <ModalHeader className={moneyToneHead(borrowed ? "expense" : "income")} toggle={working ? undefined : close}>
         {t(borrowed ? "debts.wizard.titleOut" : "debts.wizard.titleIn")} · {debt.person}
       </ModalHeader>
       <form
@@ -251,16 +253,21 @@ export default function RepaymentWizard({
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          {index === 0 ? (
-            <Button type="button" color="secondary" outline onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={working}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            index === 0 ? (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={working}>
+                ‹ {t("common.back")}
+              </Button>
+            )
+          }
+        >
           {step === "review" ? (
             <Button type="submit" color="primary" disabled={working || !amountOk || !when} aria-busy={working || undefined}>
               {working ? t("common.saving") : t("common.save")}
@@ -270,7 +277,7 @@ export default function RepaymentWizard({
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

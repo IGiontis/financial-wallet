@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef } from "react";
-import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { cleanLine } from "../../shared/utils/cleanText";
@@ -200,17 +201,21 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
           )}
         </ModalBody>
 
-        {/* Back / Cancel on the left; Next or Save on the right. */}
-        <ModalFooter className="justify-content-between">
-          {step === "name" ? (
-            <Button type="button" color="secondary" outline onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep("name")} disabled={saving}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            step === "name" ? (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep("name")} disabled={saving}>
+                ‹ {t("common.back")}
+              </Button>
+            )
+          }
+        >
           <div className="d-flex align-items-center gap-2">
             <UnchangedHint show={unchanged} />
             {step === "review" ? (
@@ -224,7 +229,7 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
               </Button>
             )}
           </div>
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

@@ -245,14 +245,14 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
 
       <Modal isOpen={month !== undefined} toggle={() => setOpened(null)} centered scrollable>
         <ModalHeader toggle={() => setOpened(null)}>
-          <span style={{ fontSize: "var(--fs-lead)", textTransform: "capitalize" }}>{month ? formats.monthLong.format(month.start) : ""}</span>
+          <span style={{ textTransform: "capitalize" }}>{month ? formats.monthLong.format(month.start) : ""}</span>
         </ModalHeader>
         <ModalBody>{renderSheet()}</ModalBody>
       </Modal>
 
       <Modal isOpen={opened === "done" && settled.length > 0} toggle={() => setOpened(null)} centered scrollable>
         <ModalHeader toggle={() => setOpened(null)}>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.doneTitle")}</span>
+          {t("planner.doneTitle")}
         </ModalHeader>
         <ModalBody>
           {settled.map(renderSettled)}

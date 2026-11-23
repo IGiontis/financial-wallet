@@ -8,6 +8,7 @@ import { SkeletonCardGrid, SkeletonRows } from "../../../shared/components/Skele
 import { PageWaiting } from "../../../shared/components/PageWaiting";
 import type { PageLoad } from "../../../shared/hooks/usePageLoad";
 import { PageTabs } from "../../../shared/components/PageTabs";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { GoalPickMenu } from "./GoalPickMenu";
 import { GROUP_BY_OPTIONS } from "./goalGrouping";
@@ -42,8 +43,9 @@ export interface GoalsWorkbenchProps {
   screen: string;
   title: string;
   subtitle: string;
-  /** The primary button — "new goal". Placed by the shell, owned by the page. */
-  action: ReactNode;
+  /** The add's words — «Νέος στόχος» / «Νέα επένδυση»: the «+» the header draws, left. */
+  addLabel: string;
+  onAdd: () => void;
   /** This screen's goals, every status. */
   goals: InvestmentGoalWithStats[];
   /**
@@ -71,7 +73,8 @@ export function GoalsWorkbench({
   screen,
   title,
   subtitle,
-  action,
+  addLabel,
+  onAdd,
   goals,
   load,
   statuses,
@@ -163,25 +166,20 @@ export function GoalsWorkbench({
 
   return (
     <>
-      {/* The add («+», `AddButton`) pinned left; the title beside it is what wraps. */}
-      <div className={styles.header}>
-        <div className={styles.headActions}>{action}</div>
-        <div className={styles.headText}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{title}</h1>
-          <p className="small text-body-secondary mb-0">{subtitle}</p>
-        </div>
-      </div>
-
-      {/* `goal-views` and each tab's `data-view` are what the demo's guided tour
+      {/* The shared header card (`PageHeader`): the «+» pinned left, the title
+          beside it, and the three tabs inside the same card.
+          `goal-views` and each tab's `data-view` are what the demo's guided tour
           presses to put the cards on screen before it points at one. */}
-      <PageTabs
-        base={base}
-        label={title}
-        tabs={GOAL_TABS.map((id) => ({ id, label: t(TAB_LABEL[id]) }))}
-        value={tab}
-        onChange={setTab}
-        data-tour="goal-views"
-      />
+      <PageHeader title={title} subtitle={subtitle} addLabel={addLabel} onAdd={onAdd}>
+        <PageTabs
+          base={base}
+          label={title}
+          tabs={GOAL_TABS.map((id) => ({ id, label: t(TAB_LABEL[id]) }))}
+          value={tab}
+          onChange={setTab}
+          data-tour="goal-views"
+        />
+      </PageHeader>
 
       {tab === "overview" && panel("overview", load === "waiting" ? <PageWaiting /> : overview)}
       {tab === "cards" && panel("cards", browseTab("cards"))}

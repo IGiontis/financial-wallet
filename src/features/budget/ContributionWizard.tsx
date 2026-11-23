@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, FormFeedback, FormGroup, FormText, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Alert, Button, FormFeedback, FormGroup, FormText, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { DateField } from "../../shared/components/DateField";
@@ -21,7 +21,8 @@ import { useCoveredFunding } from "./useCoveredFunding";
 import { coveredFundingVars } from "./coveredFunding";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { RequiredMark } from "../../shared/components/RequiredMark";
@@ -390,7 +391,11 @@ export default function ContributionWizard({
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{title}</ModalHeader>
+      {/* Which way the money goes, on the HEADER (rule 15a): a deposit takes money
+          off a card (red), a withdrawal brings it back (green). */}
+      <ModalHeader className={moneyToneHead(deposit ? "expense" : "income")} toggle={onClose}>
+        {title}
+      </ModalHeader>
       <form
         noValidate
         onSubmit={(e) => {
@@ -665,16 +670,21 @@ export default function ContributionWizard({
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          {index === 0 ? (
-            <Button type="button" color="secondary" outline onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={saving}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            index === 0 ? (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={saving}>
+                ‹ {t("common.back")}
+              </Button>
+            )
+          }
+        >
           {step === "review" ? (
             <Button type="submit" color="primary" disabled={saving || !!amountError}>
               {saving ? t("common.saving") : t(deposit ? "investments.addDeposit" : "investments.confirmWithdrawal")}
@@ -684,7 +694,7 @@ export default function ContributionWizard({
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

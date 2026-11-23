@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
 import { DateField } from "../../../shared/components/DateField";
@@ -10,7 +10,8 @@ import { CADENCES, cadenceOf, cadenceProblem, draftFor, EVERY_N_CHOICES, monthsO
 import { categoryLabel } from "../../../shared/utils/categories";
 import type { Category } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
-import { FORM_MODAL } from "../../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { YesNoChoice } from "../../../shared/components/YesNoChoice";
 import { EveryPicker } from "../../../shared/components/EveryPicker";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
@@ -270,8 +271,14 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
   const everyMonths = stored.every ?? EVERY_N_CHOICES[0];
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: "var(--fs-lead)" }}>{t(edit ? "planner.editEntry" : !chosenMode ? "planner.addAmount" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
+      {/* Which way the money goes, on the HEADER (rule 15a): «μπαίνουν» is a
+          one-off coming in (green), a line is money going out (red). It turns
+          the moment the tile is pressed — `chosenMode` is set in `chooseMode` —
+          and is toned from the start when the caller named the kind or an
+          existing figure is being edited. Nothing is toned while the question
+          is unanswered. */}
+      <ModalHeader className={moneyToneHead(chosenMode === "oneoff" ? "income" : chosenMode === "line" ? "expense" : undefined)} toggle={onClose}>
+        {t(edit ? "planner.editEntry" : !chosenMode ? "planner.addAmount" : dated ? "planner.addOneOff" : "planner.addEntry")}
       </ModalHeader>
 
       <form
@@ -483,12 +490,13 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          {/* Left, away from Save: the two buttons of a small dialog sitting side
-              by side is how a delete gets pressed by accident. */}
-          {onDelete ? <DeleteButton iconOnly onClick={onDelete} what={draft.label || undefined} /> : <span />}
-          <span className="d-flex gap-2">
-            {index === 0 ? (
+        {/* Delete far left, then the rule, then the way out (rule 15b,
+            `DialogFooter`): the two buttons of a small dialog sitting side by
+            side is how a delete gets pressed by accident. */}
+        <DialogFooter
+          remove={onDelete ? <DeleteButton iconOnly onClick={onDelete} what={draft.label || undefined} /> : undefined}
+          back={
+            index === 0 ? (
               <Button type="button" color="secondary" outline onClick={onClose}>
                 {t("common.cancel")}
               </Button>
@@ -496,10 +504,12 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
               <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
-            )}
+            )
+          }
+        >
             {step === "3" ? (
               <>
-                <UnchangedHint show={unchanged} className="align-self-center" />
+                <UnchangedHint show={unchanged} />
                 <Button type="submit" color="primary" disabled={!valid || unchanged}>
                   {t("common.save")}
                 </Button>
@@ -509,8 +519,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                 {t("common.next")} ›
               </Button>
             )}
-          </span>
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

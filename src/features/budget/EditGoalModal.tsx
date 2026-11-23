@@ -6,11 +6,12 @@ import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../shared/utils/validationMessage";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback } from "reactstrap";
 import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { useGoalPartsField } from "./components/useGoalPartsField";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizard";
@@ -247,11 +248,11 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
           {step === "review" && <GoalReview values={formik.values} kindLabel={kindLabel} rows={rows} onGo={(s) => void goTo(s)} />}
         </ModalBody>
 
-        {/* Delete far left, then Back / Cancel; Next or Save on the right. */}
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {onDelete && <DeleteButton opensConfirm iconOnly label={t("common.delete")} onClick={onDelete} disabled={formik.isSubmitting} />}
-            {step === "what" ? (
+        {/* Delete far left, a rule, then Back / Cancel; Next / Save on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={onDelete ? <DeleteButton opensConfirm iconOnly label={t("common.delete")} onClick={onDelete} disabled={formik.isSubmitting} /> : undefined}
+          back={
+            step === "what" ? (
               <Button type="button" color="secondary" outline onClick={handleClose}>
                 {t("common.cancel")}
               </Button>
@@ -259,8 +260,9 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
               <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])} disabled={formik.isSubmitting}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
+            )
+          }
+        >
           {step === "review" ? (
             // Nothing changed, nothing written: an unchanged save would still bump
             // `updatedAt` and spread to every device by the delta sync.
@@ -275,7 +277,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

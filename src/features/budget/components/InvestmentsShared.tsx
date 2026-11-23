@@ -824,7 +824,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
 
   return (
     <Modal isOpen toggle={onClose} centered size="md">
-      <ModalHeader toggle={onClose} style={{ fontSize: "var(--fs-lead)", fontWeight: 500 }}>
+      <ModalHeader toggle={onClose}>
         {i18n.t("investments.historyTitle", { icon: goal.icon ?? "", name: goal.name })}
       </ModalHeader>
       <ModalBody style={{ padding: 0 }}>

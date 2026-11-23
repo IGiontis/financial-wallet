@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, FiRotateCcw } from "react-icons/fi";
@@ -10,6 +10,7 @@ import { useIncomeIcon } from "./incomeIconContext";
 import { incomeEndText, incomeStartText, scheduleText, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 
 // Option 4, «Κάρτα ανά έσοδο»: what an income is, to read. How often it comes,
 // how much, where the money lands and when next; then six months of it in
@@ -244,13 +245,10 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
         )}
       </ModalBody>
 
-      <ModalFooter className="justify-content-between">
-        {/* The word only where it fits: on a phone the three would not share a row. */}
-        {onDelete ? (
-          <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(income)} />
-        ) : (
-          <span />
-        )}
+      {/* Delete far left, alone — nothing on the left to keep it from (rule 15b,
+          `DialogFooter`); the word only where it fits, since on a phone the
+          three would not share a row. */}
+      <DialogFooter remove={onDelete ? <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(income)} /> : undefined}>
         <div className="d-flex gap-2">
           {archived ? (
             onRestore && (
@@ -276,7 +274,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
             </>
           )}
         </div>
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

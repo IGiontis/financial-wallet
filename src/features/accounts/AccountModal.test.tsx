@@ -121,13 +121,21 @@ describe("editing an account", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("has the bin far left, then Cancel, and asks before deleting", async () => {
+  // Rule 15b (owner, 2026-11-19): the footer's LEFT slot is the bin, a thin
+  // rule, then Cancel — the rule is what keeps the two apart (`DialogFooter`);
+  // the right slot holds only the way forward.
+  it("has the bin far left, a rule, then Cancel, and asks before deleting", async () => {
     const onDelete = vi.fn();
     render(<AccountModal account={account} isMain={false} baseCurrency="EUR" onSave={vi.fn()} onDelete={onDelete} onClose={() => {}} />);
-    const left = document.querySelector(".modal-footer")!.firstElementChild as HTMLElement;
+    const footer = document.querySelector(".modal-footer") as HTMLElement;
+    const [left, group] = Array.from(footer.children) as HTMLElement[];
     const [bin, cancel] = within(left).getAllByRole("button");
     expect(bin).toHaveAccessibleName("Delete account");
     expect(cancel).toHaveTextContent("Cancel");
+    // The rule sits between them, not in the gap between the two slots.
+    expect(bin.nextElementSibling).toHaveAttribute("aria-hidden");
+    expect(bin.nextElementSibling!.nextElementSibling).toBe(cancel);
+    expect(within(group).queryByText("Cancel")).toBeNull();
     await userEvent.click(bin);
     expect(onDelete).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));

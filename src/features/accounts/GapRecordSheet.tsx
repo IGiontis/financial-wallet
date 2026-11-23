@@ -3,7 +3,7 @@ import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
-import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiX } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
@@ -11,6 +11,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { parseISODay, toISODay, dateFormat } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { useDebts } from "../debts/useDebts";
@@ -382,16 +383,21 @@ export default function GapRecordSheet({
           </>
         )}
       </ModalBody>
-      <ModalFooter className="justify-content-between">
-        {step === "1" ? (
-          <Button color="secondary" outline onClick={onClose}>
-            {t("accounts.gap.skip")}
-          </Button>
-        ) : (
-          <Button color="secondary" outline onClick={() => setStep("1")} disabled={working}>
-            ‹ {t("common.back")}
-          </Button>
-        )}
+      {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+      <DialogFooter
+        back={
+          step === "1" ? (
+            <Button color="secondary" outline onClick={onClose}>
+              {t("accounts.gap.skip")}
+            </Button>
+          ) : (
+            <Button color="secondary" outline onClick={() => setStep("1")} disabled={working}>
+              ‹ {t("common.back")}
+            </Button>
+          )
+        }
+      >
         {step === "1" ? (
           <Button color="primary" onClick={() => setStep("2")} disabled={records.length === 0}>
             {t("common.next")} ›
@@ -401,7 +407,7 @@ export default function GapRecordSheet({
             {t("accounts.gap.saveAll", { count: records.length })}
           </Button>
         )}
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

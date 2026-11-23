@@ -46,7 +46,7 @@ import { useRecordLocks, type LockState } from "../hooks/useRecordLocks";
 import { isFullyLocked } from "../linkedRecords";
 import { LockNote } from "../components/LockNote";
 import { useSavedFlash } from "../../../shared/feedback/saveFeedback";
-import { AddButton } from "../../../shared/components/AddButton";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 
 const PAGE_SIZE = 15;
@@ -706,6 +706,15 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
 
   return (
     <PageShell>
+      {/* The shared header card, the same on the list and on the calendar — this
+          page had no header of its own at all (COMPONENTS «Known drift» 2): the
+          «+» sat beside the search field, with nothing saying what the page was. */}
+      <PageHeader
+        title={t(tab === "calendar" ? "nav.transactionsCalendar" : "transactions.title")}
+        subtitle={t(tab === "calendar" ? "transactions.calendarSubtitle" : "transactions.subtitle")}
+        addLabel={t("transactions.addTransaction")}
+        onAdd={() => setShowAddModal(true)}
+      />
       {tab === "calendar" ? (
         <div>
           {isLoading ? (
@@ -782,7 +791,6 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                       {/* Label only where there's room for it */}
                       <span className="d-none d-xl-inline ms-1">{t("transactions.payees")}</span>
                     </Link>
-                    <AddButton small label={t("transactions.addTransaction")} onClick={() => setShowAddModal(true)} />
                   </div>
                 </div>
 
@@ -1018,11 +1026,8 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
             <MobileCalendar {...calendarProps} onRangeChange={handleRangeChange} />
           </div>
         )}
-        <div className="d-flex gap-2 align-items-center mb-2">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} block />
-          </div>
-          <AddButton label={t("transactions.addTransaction")} onClick={() => setShowAddModal(true)} />
+        <div className="mb-2">
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} block />
         </div>
         <div className="d-flex gap-2 align-items-center mb-3">
           <div style={{ flex: 1, minWidth: 0 }}>

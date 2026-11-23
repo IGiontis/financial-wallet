@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { useTranslation } from "react-i18next";
 import { FiClock, FiEdit2, FiMinus, FiPause, FiPlay, FiPlus } from "react-icons/fi";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
@@ -218,7 +219,7 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           <span aria-hidden>{goal.icon ?? "🎯"}</span>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{goal.name}</span>
+          {goal.name}
         </span>
       </ModalHeader>
       <ModalBody>
@@ -298,18 +299,23 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
           )}
         </div>
       </ModalBody>
-      <ModalFooter className="justify-content-between">
-        <DeleteButton
-          opensConfirm
-          onClick={() => {
-            onClose();
-            onDelete(goal);
-          }}
-        />
-        <Button color="secondary" outline onClick={onClose}>
-          {t("common.close")}
-        </Button>
-      </ModalFooter>
+      {/* Delete far left, a rule, then the way out (rule 15b, `DialogFooter`). */}
+      <DialogFooter
+        remove={
+          <DeleteButton
+            opensConfirm
+            onClick={() => {
+              onClose();
+              onDelete(goal);
+            }}
+          />
+        }
+        back={
+          <Button color="secondary" outline onClick={onClose}>
+            {t("common.close")}
+          </Button>
+        }
+      />
     </Modal>
   );
 }

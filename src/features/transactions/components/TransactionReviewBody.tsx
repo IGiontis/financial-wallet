@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../../shared/utils/tone";
+import wiz from "../../../shared/css/Wizard.module.css";
 import type { ReviewColors } from "./reviewPalettes";
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
@@ -152,10 +153,19 @@ export function TransactionReviewBody({
               </span>
             )}
           </div>
-          <p style={{ fontSize: "var(--stat-figure-size)", fontWeight: 700, margin: 0, color: colors.amtTxt, flexShrink: 0 }}>
-            {colors.sign}
-            {formatAmount(amount)}
-          </p>
+          {/* The figure, and under it the short line that says what it is —
+              rule 15c (owner, 2026-11-19): on a review step a figure alone is
+              never enough. Which way it goes comes from the palette's own sign
+              (`reviewPalettes.ts`), so every caller gets it without passing
+              anything: «−» money out, «+» money in, neither for a goal's or an
+              investment's own movement. */}
+          <div style={{ flexShrink: 0, textAlign: "right" }}>
+            <p style={{ fontSize: "var(--stat-figure-size)", fontWeight: 700, margin: 0, color: colors.amtTxt }}>
+              {colors.sign}
+              {formatAmount(amount)}
+            </p>
+            <span className={wiz.wizSub}>{t(colors.sign === "−" ? "transactions.amountNoteOut" : colors.sign === "+" ? "transactions.amountNoteIn" : "transactions.amountNotePlain")}</span>
+          </div>
         </div>
       </div>
 

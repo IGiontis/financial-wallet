@@ -129,6 +129,15 @@ function resolve(expr: string, cw: string, mode: Mode): RGBA {
     if (Number.isNaN(p)) throw new Error(`no strength for ${expr} in ${mode}`);
     return over([fill[0], fill[1], fill[2], p], resolve("surface", cw, mode));
   }
+  // A money dialog's header band (theme.css, --dialog-tone-wash): the tone
+  // mixed into the card surface, lettered in the body ink.
+  const head = expr.match(/^(income|expense) dialog head$/);
+  if (head) {
+    const fill = parse(v[head[1]], v);
+    const p = strength(THEME, "dialog-tone-wash", mode);
+    if (Number.isNaN(p)) throw new Error(`no strength for ${expr} in ${mode}`);
+    return over([fill[0], fill[1], fill[2], p], resolve("surface", cw, mode));
+  }
   // A calendar day with money still to come or to pay: the tone at --day-fill over the card.
   const day = expr.match(/^(income|expense) day-fill$/);
   if (day) {
@@ -279,6 +288,14 @@ export const PAIRS: Pair[] = [
       return [{ fg: `${tone}-text`, bg }];
     }),
   ),
+
+  // A money dialog's header band (rule 15a): the tone on the card surface,
+  // with the dialog's title and its ✕ in the ordinary body ink — never the
+  // tone's own lettering, which on its own band is what the rule undoes, and
+  // never the secondary ink, which no band in any colourway can carry at 8:1
+  // (7.52 at its very palest). A dialog header that wants a subtitle writes it
+  // in `text` at a lighter weight.
+  ...["income", "expense"].map((tone): Pair => ({ fg: "text", bg: `${tone} dialog head` })),
 
   // Calendar days (Ημερολόγιο, the Transactions calendar, Πάγια's months): the
   // day's number and figure are the body text, on a day still to come (the

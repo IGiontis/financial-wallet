@@ -1,0 +1,64 @@
+/* THE page header — one soft card on every page (owner, 2026-11-19, «option Α»:
+   docs/DECISIONS.md «Page header = option Α, a card»). See PageHeader.tsx.
+
+   The cards' own surface, edge, radius and shadow, so it reads as one of the
+   page's cards rather than as a band of its own; the page's one row of tabs or
+   selectors sits INSIDE it, under the title. */
+
+.header {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 576px) {
+  .header {
+    padding: var(--pad-card-y) var(--pad-card-x);
+  }
+}
+
+/* The «+» first, on the left, never shrinking; the title takes the rest of the
+   row and wraps. The actions keep to the right, and drop to a line of their
+   own before the title is squeezed — which is what a 320px phone with a «+»,
+   a long Greek title and a button beside it would otherwise do. */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.text {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* The tabs / view switch / density inside the card. The room each of them
+   leaves under itself on a bare page — `PageTabs`' strip has a margin-bottom
+   of its own — is the card's bottom padding in here, so the last one gives it
+   back. The strip keeps its negative inline margin: that is what puts the
+   boxes' edges on the same line as the title above them. */
+.controls {
+  margin-top: var(--space-3);
+}
+
+.controls > :last-child {
+  margin-bottom: 0;
+}
+
+/* The way back on a record page sits with the actions; its words never wrap
+   onto two lines inside the button. */
+.back {
+  white-space: nowrap;
+}

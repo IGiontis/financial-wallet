@@ -1,10 +1,11 @@
 import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
-import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { FiPlus, FiX } from "react-icons/fi";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
@@ -283,10 +284,11 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {editing && onDelete && <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />}
-            {index === 0 || (editing && step === "review") ? (
+        {/* Delete far left, a rule, then Back / Cancel; Next / Save on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={editing && onDelete ? <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} /> : undefined}
+          back={
+            index === 0 || (editing && step === "review") ? (
               <Button type="button" color="secondary" outline onClick={onClose}>
                 {t("common.cancel")}
               </Button>
@@ -294,8 +296,9 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
               <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
+            )
+          }
+        >
           {step === "review" ? (
             <div className="d-flex align-items-center gap-2">
               <UnchangedHint show={unchanged} />
@@ -308,7 +311,7 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

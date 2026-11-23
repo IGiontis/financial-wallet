@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { Link } from "react-router-dom";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { SavedCheck } from "./SavedCheck";
@@ -20,6 +20,7 @@ import { transferProblem, transferRecords } from "../transfers";
 import { newDocId } from "../../../firebase/firestore";
 import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
@@ -194,8 +195,14 @@ export default function TransferWizard({
   // ── The frame: a dialog, or the page itself ──
   const title = t(edit ? "transactions.transfer.editTitle" : "transactions.transfer.title");
   const body = (children: ReactNode) => (asPage ? <div className={styles.pageBody}>{children}</div> : <ModalBody>{children}</ModalBody>);
-  const footer = (children: ReactNode, split = false) =>
-    asPage ? <div className={`${styles.pageFooter} ${split ? styles.footerSplit : ""}`}>{children}</div> : <ModalFooter className="justify-content-between">{children}</ModalFooter>;
+  // Back / Cancel on the left, the way forward on the right; a delete would go
+  // first on the left with the rule between them (rule 15b, `DialogFooter`).
+  // A transfer has none.
+  const footer = (children: ReactNode, back?: ReactNode) => (
+    <DialogFooter bare={asPage} className={asPage ? styles.pageFooter : undefined} back={back}>
+      {children}
+    </DialogFooter>
+  );
   const frame = (children: ReactNode) =>
     asPage ? (
       <div className={styles.page}>{children}</div>
@@ -217,7 +224,7 @@ export default function TransferWizard({
             </Link>
           </p>,
         )}
-        {!asPage && footer(<Button color="secondary" outline onClick={onClose}>{t("common.close")}</Button>)}
+        {!asPage && footer(null, <Button color="secondary" outline onClick={onClose}>{t("common.close")}</Button>)}
       </>,
     );
   }
@@ -253,15 +260,12 @@ export default function TransferWizard({
           </div>,
         )}
         {footer(
-          <>
-            <Button color="secondary" outline onClick={onClose}>
-              {t("nav.allTransactions")}
-            </Button>
-            <Button color="primary" onClick={reset}>
-              + {t("transactions.transfer.newOne")}
-            </Button>
-          </>,
-          true,
+          <Button color="primary" onClick={reset}>
+            + {t("transactions.transfer.newOne")}
+          </Button>,
+          <Button color="secondary" outline onClick={onClose}>
+            {t("nav.allTransactions")}
+          </Button>,
         )}
       </>,
     );
@@ -354,37 +358,33 @@ export default function TransferWizard({
           it came from the choice of kind, which it goes back to. The dialog keeps its Cancel. */}
       {!(asPage && step === "from" && !onBack) &&
         footer(
-          <>
-            {step === "from" ? (
-              onBack ? (
-                <Button type="button" color="secondary" outline onClick={onBack}>
-                  ‹ {t("common.back")}
-                </Button>
-              ) : (
-                <Button type="button" color="secondary" outline onClick={onClose}>
-                  {t("common.cancel")}
-                </Button>
-              )
-            ) : (
-              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+          step === "review" ? (
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={!!problem || !day || unchanged}>
+                {t("transactions.confirmAndSave")}
+              </Button>
+            </div>
+          ) : step === "amount" ? (
+            <Button type="submit" color="primary">
+              {t("common.next")} ›
+            </Button>
+          ) : null,
+          step === "from" ? (
+            onBack ? (
+              <Button type="button" color="secondary" outline onClick={onBack}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-            {step === "review" ? (
-              <div className="d-flex align-items-center gap-2">
-                <UnchangedHint show={unchanged} />
-                <Button type="submit" color="primary" disabled={!!problem || !day || unchanged}>
-                  {t("transactions.confirmAndSave")}
-                </Button>
-              </div>
-            ) : step === "amount" ? (
-              <Button type="submit" color="primary">
-                {t("common.next")} ›
-              </Button>
             ) : (
-              <span />
-            )}
-          </>,
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            )
+          ) : (
+            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+              ‹ {t("common.back")}
+            </Button>
+          ),
         )}
     </form>,
   );

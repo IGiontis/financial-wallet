@@ -217,11 +217,20 @@
   overflow-wrap: break-word;
 }
 
-/* «στις προτάσεις» (when it is) with the ⋮ at the end. */
+/* The name and its count, with the ⋮ at the card's top-right — where every
+   other row in the app keeps it (owner, 2026-11-19). */
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* «στις προτάσεις», when it is one — on its own at the card's foot. */
 .cardFoot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-1);
 }
 
@@ -240,7 +249,7 @@
 /* «στις προτάσεις»: a small tag under the count (the transactions' `.txKind`
    shape), in the brand's quiet tone; it wraps rather than run out of a card. */
 .savedMark {
-  align-self: center;
+  align-self: flex-start;
   padding: var(--space-0) var(--space-1);
   border-radius: var(--radius-xs);
   background: var(--brand-soft);

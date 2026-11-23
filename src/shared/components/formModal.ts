@@ -10,3 +10,21 @@
  *   <Modal {...FORM_MODAL} isOpen={…} toggle={…}>
  */
 export const FORM_MODAL = { backdrop: "static" } as const;
+
+/** Which way the money in this dialog goes. */
+export type MoneyTone = "expense" | "income";
+
+/**
+ * The tone band a money dialog wears on its HEADER (`.claude/rules/ui.md`
+ * rule 15a, owner 2026-11-19): red for money going out or money I owe, green
+ * for money coming in or owed to me. The body keeps the ordinary dialog
+ * surface, so the red and green FIGURES inside it stay readable — the owner's
+ * complaint about the debts dialogs, whose whole body used to be tinted red.
+ *
+ *   <ModalHeader className={moneyToneHead(borrowed ? "expense" : "income")} …>
+ *
+ * A dialog with no direction (a transfer, a bank reading, a plain confirmation)
+ * passes nothing and keeps the plain header. Colours: styles/theme.css, «A
+ * money dialog's tone goes on its HEADER».
+ */
+export const moneyToneHead = (tone: MoneyTone | null | undefined | false): string | undefined => (tone ? `tone-head tone-head-${tone}` : undefined);

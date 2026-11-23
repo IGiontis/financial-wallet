@@ -40,7 +40,6 @@ import { CoveredRepaidError } from "../budget/useInvestments";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
-import { AddButton } from "../../shared/components/AddButton";
 import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
@@ -205,7 +204,8 @@ export default function GoalsPage() {
         screen="goals"
         title={t("goals.title")}
         subtitle={t("goals.subtitle")}
-        action={<AddButton label={t("goals.newGoal")} onClick={() => setShowNewGoal(true)} />}
+        addLabel={t("goals.newGoal")}
+        onAdd={() => setShowNewGoal(true)}
         goals={mine}
         load={load}
         statuses={statuses}

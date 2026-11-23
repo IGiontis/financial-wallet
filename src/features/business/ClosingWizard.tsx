@@ -1,11 +1,12 @@
 import { Fragment, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { FiPlus, FiX } from "react-icons/fi";
 import { DateField } from "../../shared/components/DateField";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -321,14 +322,19 @@ export default function ClosingWizard({
             </div>
           </div>
         </div>
-        <div className={`${page.pageFooter} ${page.footerSplit}`}>
-          <Button color="secondary" outline onClick={onClose}>
-            {t("business.pageOverview")}
-          </Button>
+        <DialogFooter
+          bare
+          className={page.pageFooter}
+          back={
+            <Button color="secondary" outline onClick={onClose}>
+              {t("business.pageOverview")}
+            </Button>
+          }
+        >
           <Button color="primary" onClick={onAgain}>
             + {t("nav.newClosing")}
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     );
   }
@@ -526,32 +532,33 @@ export default function ClosingWizard({
     </>
   );
 
-  const footer = (
+  // Delete far left, a rule, then Back / Cancel; Next / Save on the right
+  // (rule 15b) — the same parts whether this is a dialog or the whole page.
+  const footerRemove = editing && onDelete ? <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} /> : undefined;
+  const footerBack =
+    index === 0 || (editing && step === "review") ? (
+      <Button type="button" color="secondary" outline onClick={onClose}>
+        {t("common.cancel")}
+      </Button>
+    ) : (
+      <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+        ‹ {t("common.back")}
+      </Button>
+    );
+  const footerForward = (
     <>
-          <div className="d-flex gap-2">
-            {editing && onDelete && <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />}
-            {index === 0 || (editing && step === "review") ? (
-              <Button type="button" color="secondary" outline onClick={onClose}>
-                {t("common.cancel")}
-              </Button>
-            ) : (
-              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
-                ‹ {t("common.back")}
-              </Button>
-            )}
-          </div>
-          {step === "review" ? (
-            <div className="d-flex align-items-center gap-2">
-              <UnchangedHint show={nothingChanged} />
-              <Button type="submit" color="primary" disabled={nothingChanged || !ready}>
-                {t("common.save")}
-              </Button>
-            </div>
-          ) : (
-            <Button type="submit" color="primary">
-              {t("common.next")} ›
-            </Button>
-          )}
+      {step === "review" ? (
+        <div className="d-flex align-items-center gap-2">
+          <UnchangedHint show={nothingChanged} />
+          <Button type="submit" color="primary" disabled={nothingChanged || !ready}>
+            {t("common.save")}
+          </Button>
+        </div>
+      ) : (
+        <Button type="submit" color="primary">
+          {t("common.next")} ›
+        </Button>
+      )}
     </>
   );
 
@@ -561,7 +568,9 @@ export default function ClosingWizard({
     return (
       <form noValidate onSubmit={onSubmit} className={page.page}>
         <div className={page.pageBody}>{content}</div>
-        <div className={`${page.pageFooter} ${page.footerSplit}`}>{footer}</div>
+        <DialogFooter bare className={page.pageFooter} remove={footerRemove} back={footerBack}>
+          {footerForward}
+        </DialogFooter>
       </form>
     );
 
@@ -570,7 +579,9 @@ export default function ClosingWizard({
       <ModalHeader toggle={onClose}>{header}</ModalHeader>
       <form noValidate onSubmit={onSubmit}>
         <ModalBody>{content}</ModalBody>
-        <ModalFooter className="justify-content-between">{footer}</ModalFooter>
+        <DialogFooter remove={footerRemove} back={footerBack}>
+          {footerForward}
+        </DialogFooter>
       </form>
     </Modal>
   );

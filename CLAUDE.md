@@ -61,6 +61,14 @@ only when the same brief has been written three times.
 - If the map and the code disagree, the code is the truth — fix the map, and tell the owner
   if it looks like a bug.
 
+## Impact first — tell the owner what else a change touches (owner, 2026-11-19)
+
+- Before building a change, list what else it affects: other pages that show the same data,
+  stored data or fields, totals and money figures, the planner/overview/statistics, the demo,
+  an earlier decision in DECISIONS.md. If anything outside the request is affected, tell him
+  in plain words — «αυτό επηρεάζει εκείνο» — with 2–3 ways to handle it and your
+  recommendation, and wait for his choice. Agents report such impacts instead of deciding.
+
 ## Clean up as you go — part of every change (owner, 2026-11-17)
 
 - When a change replaces or reshapes something, remove what it leaves behind IN THE SAME

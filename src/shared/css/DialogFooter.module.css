@@ -1,0 +1,66 @@
+/* A dialog's / wizard's footer — see DialogFooter.tsx.
+
+   Rule 15b (owner, 2026-11-19, corrected 2026-11-23): DELETE IS KEPT APART.
+   Three slots:
+
+     [🗑 Διαγραφή] │ [‹ Πίσω / Ακύρωση] ……… [Επόμενο › / Αποθήκευση]
+
+   The LEFT slot holds the delete first, then a thin vertical rule with a clear
+   gap on either side of it, then the way out of this step. The rule belongs to
+   that group and sits BETWEEN its two buttons — never floating in the empty
+   space between the left and the right slot — and it is drawn only when there
+   really are two buttons to keep apart. The RIGHT slot holds the forward
+   actions and nothing else.
+
+   Before this the delete and Cancel/Back stood side by side in one
+   `d-flex gap-2`, half a centimetre apart: the bin was pressed by mistake.
+
+   One row, never wrapped. For that to hold at 320px the delete is the bin
+   alone (`iconOnly`) or the bin with its word only from `sm` up
+   (`wordFromSm`): a footer whose delete spells «Διαγραφή δανείου» at every
+   width pushed the rule onto the button beside it. What can grow — «Δεν άλλαξε
+   τίποτα» beside Save — wraps inside the right group instead, where it reads
+   as part of it. */
+
+/* No `justify-content` of its own on purpose: the two slots place themselves
+   with auto margins, so this works unchanged inside Bootstrap's `.modal-footer`
+   (flex-end) and inside a wizard's own sticky page bar, and neither has to win
+   a cascade against the other. */
+.foot {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Delete · rule · the way out. The gap is the air on either side of the rule. */
+.left {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-inline-end: auto;
+  min-width: 0;
+}
+
+/* The thin rule between the bin and the button that must not be mistaken for
+   it. A boundary, not lettering: `--border` is the app's visible edge (≥ 3:1 on
+   every ground). Drawn by DialogFooter only when both sides of it exist. */
+.rule {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 1px;
+  min-height: 1.75rem;
+  background: var(--border);
+}
+
+/* Next / Save / Confirm, and the hint that belongs to Save. */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+  min-width: 0;
+}

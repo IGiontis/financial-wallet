@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Alert, Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCheck } from "react-icons/fi";
 import { addMonths, startOfDay } from "date-fns";
@@ -14,7 +14,8 @@ import { bankAnswerDate, isOnReadingDay, isSettled, type ArrivalInput, type Expe
 import type { IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../css/IncomesPage.module.css";
-import { FORM_MODAL } from "../../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../../shared/components/formModal";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // «Ήρθε»: four fields and one button.
@@ -130,9 +131,12 @@ export default function ArrivedSheet({ income, status, options, expected, readin
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
-      <ModalHeader toggle={onClose}>
+      {/* Money arriving: the green tone on the HEADER (rule 15a). */}
+      <ModalHeader className={moneyToneHead("income")} toggle={onClose}>
         <span className="d-block">{income.name}</span>
-        <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
+        {/* On the tone band the subtitle is the body ink at a lighter weight:
+            no band carries the secondary ink at 8:1 (contrast.test.ts). */}
+        <span className="d-block fw-normal" style={{ fontSize: "var(--fs-text)" }}>
           {chosen.undated
             ? t("incomes.arrived.subtitleUndated", { month: f.monthName(chosen.date) })
             : t("incomes.arrived.subtitle", { month: f.monthName(chosen.date), date: f.weekdayDate.format(chosen.expectedDate) })}
@@ -280,16 +284,21 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           </p>
         </ModalBody>
         )}
-        <ModalFooter className="justify-content-between">
-          {reviewing ? (
-            <Button type="button" color="secondary" outline onClick={() => setReviewing(false)}>
-              ‹ {t("incomes.arrived.change")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            reviewing ? (
+              <Button type="button" color="secondary" outline onClick={() => setReviewing(false)}>
+                ‹ {t("incomes.arrived.change")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            )
+          }
+        >
           {reviewing ? (
             <Button type="submit" color="primary">
               <FiCheck className="me-1" aria-hidden />
@@ -300,7 +309,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Bill, BillFrequency, BillPause, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,8 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
 import { DateField } from "../../shared/components/DateField";
 import { parseISOMonth } from "../../shared/utils/dates";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { WizardSteps } from "../transactions/components/WizardSteps";
@@ -427,7 +428,11 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
 
   return (
     <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered scrollable>
-      <ModalHeader toggle={handleClose}>{isEdit ? t("bills.editBill") : t("bills.newBill")}</ModalHeader>
+      {/* A bill is money going out: the red tone rides on the HEADER (rule 15a),
+          not over the body, where the figures are. */}
+      <ModalHeader className={moneyToneHead("expense")} toggle={handleClose}>
+        {isEdit ? t("bills.editBill") : t("bills.newBill")}
+      </ModalHeader>
       <form
         noValidate
         onSubmit={(e) => {
@@ -436,7 +441,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           else void goTo(BILL_STEPS[index + 1]);
         }}
       >
-        <ModalBody className="wash-expense">
+        <ModalBody>
           <WizardSteps steps={BILL_STEPS} current={step} onGo={(target) => void goTo(target)} label={(s) => t(`bills.wizard.step_${s}`)} open={isEdit} large />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`bills.wizard.title_${step}`)}
@@ -841,11 +846,11 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           )}
         </ModalBody>
 
-        {/* Delete far left, then Back / Cancel; Next / Save alone on the right. */}
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {isEdit && onDelete && <DeleteButton opensConfirm iconOnly label={t("bills.deleteBill")} onClick={onDelete} disabled={deleteLocked} title={deleteReason} />}
-            {step === "what" ? (
+        {/* Delete far left, a rule, then Back / Cancel; Next / Save on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={isEdit && onDelete ? <DeleteButton opensConfirm iconOnly label={t("bills.deleteBill")} onClick={onDelete} disabled={deleteLocked} title={deleteReason} /> : undefined}
+          back={
+            step === "what" ? (
               <Button type="button" color="secondary" outline onClick={handleClose}>
                 {t("common.cancel")}
               </Button>
@@ -853,8 +858,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               <Button type="button" color="secondary" outline onClick={() => setStep(BILL_STEPS[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
+            )
+          }
+        >
           {step === "review" ? (
             <div className="d-flex align-items-center gap-2">
               <UnchangedHint show={unchanged} />
@@ -867,7 +873,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

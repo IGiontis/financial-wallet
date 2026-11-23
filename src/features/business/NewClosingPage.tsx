@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PageShell } from "../../shared/components/PageShell";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { PageWaiting } from "../../shared/components/PageWaiting";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import { useAccessState } from "../../shared/hooks/useHasAccess";
@@ -35,7 +36,7 @@ function ClosingFrame({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   return (
     <PageShell className="form-page">
-      <h1 className="h5 fw-semibold text-body-emphasis mb-3">{t("nav.newClosing")}</h1>
+      <PageHeader title={t("nav.newClosing")} subtitle={t("business.newClosingSubtitle")} />
       {children}
     </PageShell>
   );

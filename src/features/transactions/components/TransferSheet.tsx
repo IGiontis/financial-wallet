@@ -1,4 +1,5 @@
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { useTranslation } from "react-i18next";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
@@ -68,13 +69,14 @@ export default function TransferSheet({
         <p className="small text-body-secondary mt-3 mb-0">{t("transactions.transfer.neither")}</p>
         {editBlocked && <p className="small text-body-secondary mt-2 mb-0">{editBlocked}</p>}
       </ModalBody>
-      <ModalFooter className="justify-content-between">
-        {/* Asks first, as every delete does, and takes whichever halves are there. */}
-        <DeleteButton iconOnly onClick={onDelete} what={out.description} disabled={deleteGuard.locked} title={deleteGuard.reason} />
+      {/* Delete far left, alone — nothing on the left to keep it from (rule 15b,
+          `DialogFooter`); it asks first, as every delete does, and takes
+          whichever halves are there. */}
+      <DialogFooter remove={<DeleteButton iconOnly onClick={onDelete} what={out.description} disabled={deleteGuard.locked} title={deleteGuard.reason} />}>
         <Button color="primary" onClick={onEdit} disabled={!!editBlocked}>
           {t("common.edit")}
         </Button>
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

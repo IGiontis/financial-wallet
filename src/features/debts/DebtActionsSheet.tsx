@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { DialogFooter } from "../../shared/components/DialogFooter";
+import { moneyToneHead } from "../../shared/components/formModal";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiGift, FiRotateCcw } from "react-icons/fi";
 import { toast } from "react-toastify";
@@ -176,8 +178,9 @@ export function DebtActionsSheet({
     }
     return (
       <>
-        <ModalHeader toggle={close}>
-          <span style={{ fontSize: "var(--fs-lead)" }}>{t("debts.actionsTitle", { name })}</span>
+        {/* The debt's own direction on the HEADER (rule 15a). */}
+        <ModalHeader className={moneyToneHead(debt.direction === "owed_by_me" ? "expense" : "income")} toggle={close}>
+          {t("debts.actionsTitle", { name })}
         </ModalHeader>
         <ModalBody>
           <div className={styles.actionsList}>
@@ -213,13 +216,15 @@ export function DebtActionsSheet({
           {debt.isSettled && <p className={styles.actionsNote}>{t("debts.archivedNote")}</p>}
           {deleteGuard.reason && <p className={styles.actionsNote}>{deleteGuard.reason}</p>}
         </ModalBody>
-        {/* Delete far left, then the way out. */}
-        <ModalFooter className="justify-content-between">
-          <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setStep("delete")} disabled={deleteGuard.locked} title={deleteGuard.reason} />
-          <Button color="secondary" outline onClick={close}>
-            {t("common.close")}
-          </Button>
-        </ModalFooter>
+        {/* Delete far left, a rule, then the way out (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={<DeleteButton opensConfirm wordFromSm label={t("debts.deleteLoan")} onClick={() => setStep("delete")} disabled={deleteGuard.locked} title={deleteGuard.reason} />}
+          back={
+            <Button color="secondary" outline onClick={close}>
+              {t("common.close")}
+            </Button>
+          }
+        />
       </>
     );
   })();

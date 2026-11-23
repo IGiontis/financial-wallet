@@ -30,7 +30,6 @@ import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
-import { AddButton } from "../../shared/components/AddButton";
 import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
@@ -176,7 +175,8 @@ export default function InvestmentsPage() {
         screen="investments"
         title={t("investments.title")}
         subtitle={t("investments.subtitle")}
-        action={<AddButton label={t("investments.newInvestment")} onClick={() => setShowNewGoal(true)} />}
+        addLabel={t("investments.newInvestment")}
+        onAdd={() => setShowNewGoal(true)}
         goals={mine}
         load={load}
         statuses={statuses}

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { PageShell } from "../../../shared/components/PageShell";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { SkeletonCard, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { PageWaiting } from "../../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
@@ -195,10 +196,7 @@ export function LedgerPage() {
 
   return (
     <PageShell>
-      <div className="mb-3">
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("ledger.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("ledger.subtitle")}</p>
-      </div>
+      <PageHeader title={t("ledger.title")} subtitle={t("ledger.subtitle")} />
 
       {/* What stretch, and what of it. */}
       <div className={styles.controls}>

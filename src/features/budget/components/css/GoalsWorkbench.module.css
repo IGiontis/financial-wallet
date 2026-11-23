@@ -1,28 +1,7 @@
-/* The chrome around a goal screen: heading, the three tabs (`PageTabs`), and
-   in each tab its own block — the overview's figures, or a search row over the
-   cards or the list. See GoalsWorkbench.tsx, GoalsOverview.tsx. */
-
-/* The «+» first, on the left, never wrapping; the title takes the rest. The
-   same room under it as `AddHeader` leaves (`mb-3`), so the tabs sit the same
-   distance under the header on every page. */
-.header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.headText {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.headActions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
+/* The chrome around a goal screen: the shared header card (`PageHeader`, which
+   holds the «+», the title and the three tabs), and in each tab its own block —
+   the overview's figures, or a search row over the cards or the list.
+   See GoalsWorkbench.tsx, GoalsOverview.tsx. */
 
 .panel:focus-visible {
   outline: var(--focus-width) solid var(--focus);

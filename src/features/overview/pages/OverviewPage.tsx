@@ -55,6 +55,7 @@ import { useCategories } from "../../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { AttentionList, MonthInOut, Panel, PositionPanel, SpendingPanel, TileGrid, TodayPanel, type OverviewTile } from "../components/OverviewTabs";
 import { PageShell } from "../../../shared/components/PageShell";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { findCategory } from "../../../shared/utils/categories";
 import { debtTotals, debtsByPerson } from "../../debts/debtsUtils";
 
@@ -405,10 +406,7 @@ export const OverviewPage = () => {
   if (load === "waiting") {
     return (
       <PageShell>
-        <div className="mb-3">
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
-          <p className="small text-body-secondary mb-0">{dateFormat("dayMonthWeekday", locale).format(now)}</p>
-        </div>
+        <PageHeader title={t("overview.title")} subtitle={dateFormat("dayMonthWeekday", locale).format(now)} />
         <PageWaiting />
       </PageShell>
     );
@@ -449,29 +447,30 @@ export const OverviewPage = () => {
 
       {liveSelectedGoal && <GoalDetailModal goal={liveSelectedGoal} formatCurrency={formatCurrency} onClose={() => setSelectedGoal(null)} />}
 
-      {/* Header: the page's name and the day — a date is what a home screen
-          is opened to learn, a sentence about what the app does is not. */}
-      <div className="mb-3">
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
-        <p className="small text-body-secondary mb-0">
-          {dateFormat("dayMonthWeekday", locale).format(now)}
-          {" · "}
-          {/* Ticks on its own: the page is not re-rendered each second. */}
-          <LiveClock locale={locale} />
-        </p>
-      </div>
-
-
-      {/* First, under the page's name: which view is the first thing chosen.
-          Labelled and full width, so on a phone each is a real target. */}
-      <PageTabs
-        base={TABS_BASE}
-        label={t("overview.title")}
-        tabs={TABS.map(({ id, labelKey }) => ({ id, label: t(labelKey) }))}
-        value={tab}
-        onChange={setTab}
-        data-tour="overview-tabs"
-      />
+      {/* The shared header card: the page's name and the day — a date is what a
+          home screen is opened to learn, a sentence about what the app does is
+          not — and, inside the same card, which view is the first thing chosen.
+          Labelled and full width, so on a phone each tab is a real target. */}
+      <PageHeader
+        title={t("overview.title")}
+        subtitle={
+          <>
+            {dateFormat("dayMonthWeekday", locale).format(now)}
+            {" · "}
+            {/* Ticks on its own: the page is not re-rendered each second. */}
+            <LiveClock locale={locale} />
+          </>
+        }
+      >
+        <PageTabs
+          base={TABS_BASE}
+          label={t("overview.title")}
+          tabs={TABS.map(({ id, labelKey }) => ({ id, label: t(labelKey) }))}
+          value={tab}
+          onChange={setTab}
+          data-tour="overview-tabs"
+        />
+      </PageHeader>
 
       {/* Each tab its own: nothing is shown on two of them. "All" is the
           answer and the way out to every page; "Today" what needs doing and

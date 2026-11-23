@@ -31,6 +31,7 @@ import { ThemeSwitch } from "../../../shared/components/ThemeSwitch";
 import { NavStylePicker } from "../components/NavStylePicker";
 import { useSignOut } from "../../layout/useProfile";
 import { PageTabs } from "../../../shared/components/PageTabs";
+import { PageHeader } from "../../../shared/components/PageHeader";
 import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { MotionEffectsSetting } from "../components/MotionEffectsSetting";
 import { BusinessSetting } from "../components/BusinessSetting";
@@ -351,11 +352,7 @@ export function SettingsPage() {
   // The title and the tabs draw at once, while the account is still loading:
   // the tab you asked for is already known, and only its cards wait.
   const header = (
-    <>
-      <div style={{ marginBottom: "1rem" }}>
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
-      </div>
+    <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")}>
       {/* Each tab its own address (/settings/<id>): «back» steps back through them, a link opens any one. */}
       <PageTabs
         base={SETTINGS_TABS_BASE}
@@ -366,7 +363,7 @@ export function SettingsPage() {
           if (next !== tab) navigate(settingsTabPath(next));
         }}
       />
-    </>
+    </PageHeader>
   );
   const tabIds = pageTabIds(SETTINGS_TABS_BASE, tab);
   const panelProps = { id: tabIds.panel, role: "tabpanel", "aria-labelledby": tabIds.tab } as const;

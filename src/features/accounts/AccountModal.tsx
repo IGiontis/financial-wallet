@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import segmented from "../../shared/css/Segmented.module.css";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -10,6 +10,7 @@ import styles from "./css/AccountsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -270,10 +271,11 @@ export default function AccountModal({
 
         {/* The bin far left, then Back / Cancel; Next or Save on the right, away
             from the bin: a slip of the thumb beside Save started the wrong thing. */}
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {account && onDelete && !confirming && <DeleteButton opensConfirm iconOnly label={t("accounts.delete")} onClick={() => setConfirming(true)} />}
-            {step === "what" ? (
+        {/* Delete far left, a rule, then the way out (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={account && onDelete && !confirming ? <DeleteButton opensConfirm iconOnly label={t("accounts.delete")} onClick={() => setConfirming(true)} /> : undefined}
+          back={
+            step === "what" ? (
               <Button type="button" color="secondary" outline onClick={onClose}>
                 {t("common.cancel")}
               </Button>
@@ -281,8 +283,9 @@ export default function AccountModal({
               <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
+            )
+          }
+        >
           {step === "review" ? (
             <div className="d-flex align-items-center gap-2">
               <UnchangedHint show={unchanged} />
@@ -295,7 +298,7 @@ export default function AccountModal({
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

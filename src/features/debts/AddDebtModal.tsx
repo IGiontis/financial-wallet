@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { PayeeInput } from "../transactions/components/PayeeInput";
 import { WizardSteps } from "../transactions/components/WizardSteps";
@@ -17,7 +17,8 @@ import segmented from "../../shared/css/Segmented.module.css";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
-import { FORM_MODAL } from "../../shared/components/formModal";
+import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { toast } from "react-toastify";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { isSavingsGoal } from "../budget/goalKinds";
@@ -406,7 +407,11 @@ export default function AddDebtModal({
 
   const content = (
     <>
-      <ModalHeader toggle={saving || savingCovered ? undefined : onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
+      {/* The tone rides on the HEADER, so the red and green figures in the body
+          stay readable (rule 15a): red for a debt I owe, green for one owed to me. */}
+      <ModalHeader className={moneyToneHead(borrowed ? "expense" : "income")} toggle={saving || savingCovered ? undefined : onClose}>
+        {debt ? t("debts.editLoan") : t("debts.add")}
+      </ModalHeader>
       <form
         noValidate
         onSubmit={(e) => {
@@ -417,7 +422,7 @@ export default function AddDebtModal({
           else goTo(DEBT_STEPS[index + 1]);
         }}
       >
-        <ModalBody className={borrowed ? "wash-expense" : "wash-income"}>
+        <ModalBody>
           <WizardSteps steps={DEBT_STEPS} current={step} onGo={goTo} label={(s) => t(STEP_LABEL[s])} open={!!debt} large />
           {covered.failed && <CoveredLoadFailed onRetry={covered.retry} />}
           {/* The interest step asks its question in the tiles' own label. */}
@@ -721,11 +726,11 @@ export default function AddDebtModal({
           )}
         </ModalBody>
 
-        {/* Delete far left (editing), then Back / Cancel; Next / Save alone on the right. */}
-        <ModalFooter className="justify-content-between">
-          <div className="d-flex gap-2">
-            {debt && onDelete && <DeleteButton opensConfirm iconOnly label={t("debts.deleteLoan")} onClick={onDelete} disabled={deleteLocked || saving} title={deleteReason} />}
-            {step === "who" ? (
+        {/* Delete far left, a rule, then Back / Cancel; Next / Save on the right (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          remove={debt && onDelete ? <DeleteButton opensConfirm iconOnly label={t("debts.deleteLoan")} onClick={onDelete} disabled={deleteLocked || saving} title={deleteReason} /> : undefined}
+          back={
+            step === "who" ? (
               <Button type="button" color="secondary" outline onClick={onClose} disabled={saving}>
                 {t("common.cancel")}
               </Button>
@@ -733,21 +738,20 @@ export default function AddDebtModal({
               <Button type="button" color="secondary" outline onClick={() => setStep(DEBT_STEPS[index - 1])} disabled={saving || savingCovered}>
                 ‹ {t("common.back")}
               </Button>
-            )}
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            {step === "review" && <UnchangedHint show={unchanged} />}
-            {step === "review" ? (
-              <Button type="submit" color="primary" disabled={saving || savingCovered || !covered.ready || unchanged}>
-                {saving || savingCovered ? t("common.saving") : t("common.save")}
-              </Button>
-            ) : (
-              <Button type="submit" color="primary">
-                {t("common.next")} ›
-              </Button>
-            )}
-          </div>
-        </ModalFooter>
+            )
+          }
+        >
+          {step === "review" && <UnchangedHint show={unchanged} />}
+          {step === "review" ? (
+            <Button type="submit" color="primary" disabled={saving || savingCovered || !covered.ready || unchanged}>
+              {saving || savingCovered ? t("common.saving") : t("common.save")}
+            </Button>
+          ) : (
+            <Button type="submit" color="primary">
+              {t("common.next")} ›
+            </Button>
+          )}
+        </DialogFooter>
       </form>
     </>
   );

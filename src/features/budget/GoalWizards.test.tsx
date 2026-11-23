@@ -261,14 +261,20 @@ describe("editing a goal", () => {
     });
   });
 
-  it("puts the bin far left, then Back / Cancel, and hands delete to the page", async () => {
+  // Rule 15b (owner, 2026-11-19): the footer's LEFT slot is the bin, a thin
+  // rule, then Back / Cancel; the right slot holds only Next / Save, so nothing
+  // the thumb reaches for sits flush against the bin (`DialogFooter`).
+  it("puts the bin far left, a rule, then Back / Cancel, and hands delete to the page", async () => {
     const onDelete = vi.fn();
     render(<EditGoalModal goal={goal} isOpen onClose={() => {}} onSubmit={vi.fn()} onDelete={onDelete} />);
     const footer = document.querySelector(".modal-footer") as HTMLElement;
-    const left = footer.firstElementChild as HTMLElement;
+    const [left, group] = Array.from(footer.children) as HTMLElement[];
     const [bin, cancel] = within(left).getAllByRole("button");
     expect(bin).toHaveAccessibleName("Delete");
     expect(cancel).toHaveTextContent("Cancel");
+    expect(bin.nextElementSibling).toHaveAttribute("aria-hidden");
+    expect(bin.nextElementSibling!.nextElementSibling).toBe(cancel);
+    expect(within(group).getAllByRole("button")[0]).toHaveTextContent("Next");
     await userEvent.click(bin);
     expect(onDelete).toHaveBeenCalledOnce();
   });

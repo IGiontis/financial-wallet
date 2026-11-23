@@ -266,10 +266,10 @@
   }
 }
 
-/* After a save: the way out on the left, the next one on the right. */
-.pageFooter.footerSplit {
-  justify-content: space-between;
-}
+/* How the buttons sit inside the bar — delete far left, a thin rule, then
+   Back / Cancel, with the forward actions alone on the right — is the shared
+   footer's now (`shared/css/DialogFooter.module.css`, rule 15b), not this
+   file's. The old `.footerSplit` (space-between) went with it. */
 
 /* ── Saved, on the page ───────────────────────────────────────────────────────
    The confirmation an order page gives: a tick, one line, and what went in. */

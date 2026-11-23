@@ -992,6 +992,9 @@
     "startsInMonths_other": "in {{count}} months"
   },
   "transactions": {
+    "amountNotePlain": "The record amount",
+    "amountNoteIn": "Amount coming in",
+    "amountNoteOut": "Amount going out",
     "title": "Transactions",
     "addTransaction": "Add transaction",
     "reviewTransaction": "Review transaction",
@@ -1189,7 +1192,11 @@
       "emptyDay": "No transactions on this day."
     },
     "lockFromBusiness": "Changed from Business",
-    "businessLocked": "Written by a «Day's closing». Changed and deleted on Business, together with the closing."
+    "businessLocked": "Written by a «Day's closing». Changed and deleted on Business, together with the closing.",
+    "subtitle": "Every record you entered, with filters and search",
+    "calendarSubtitle": "Your transactions day by day, on a calendar",
+    "newSubtitle": "Record an expense, an income or a transfer",
+    "newTransferSubtitle": "Move money from one card to another"
   },
   "analytics": {
     "title": "Analytics",
@@ -2752,6 +2759,7 @@
     "pageOf": "Page {{page}} of {{total}}"
   },
   "accounts": {
+    "reviewHasNow": "Has {{amount}} now",
     "title": "Banks & cash",
     "subtitle": "What is really there, as your banks show it",
     "add": "Add",
@@ -3530,7 +3538,8 @@
     "filterSaved": "In suggestions",
     "filterDuplicates": "Duplicates",
     "payeeFilter": "Which payees to show",
-    "filterNone": "None here."
+    "filterNone": "None here.",
+    "subtitle": "The names you pay or are paid by, and your categories"
   },
   "business": {
     "title": "Business",
@@ -3708,7 +3717,8 @@
     "lineSheetSub": "Where the amount comes from: each closing of the month with this line.",
     "closingSavedTitle": "Closing saved",
     "closingSavedSub": "It is in the business's days and already counts in the summary.",
-    "closingSavedDetails": "What was saved"
+    "closingSavedDetails": "What was saved",
+    "newClosingSubtitle": "One day's closing: turnover, expenses, profit"
   },
   "toasts": {
     "saved": "Saved",

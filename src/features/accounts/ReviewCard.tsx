@@ -88,6 +88,9 @@ export default function ReviewCard({
       <div className="small" style={{ minWidth: 0 }}>
         <div className="text-body-secondary">{label}</div>
         <div className="fw-semibold">{account.name}</div>
+        {/* The figure drawn on the card itself says what it is — rule 15c: a
+            figure on a review step is never left to be guessed at. */}
+        {now !== undefined && <div className="text-body-secondary">{t("accounts.reviewHasNow", { amount: formatCurrency(now) })}</div>}
         {kept ? (
           <div className="text-body-secondary">{t("accounts.editInReading")}</div>
         ) : after !== undefined && (

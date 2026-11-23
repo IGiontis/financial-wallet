@@ -90,16 +90,22 @@
   --shell-gradient: linear-gradient(135deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
   --shell-gradient-tall: linear-gradient(160deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
 
-  /* Tabs. A tab at rest is a neutral chip with an edge you can see; the chosen
-     one is the brand, filled — drawn as the brand's own three-step gradient,
-     dark at the top left (`--brand-gradient`, below), the way the shell is.
-     Every reader of these two paints them with the `background` shorthand, so
-     a gradient goes where a colour went. The small view switch uses the same
-     pair. */
+  /* Tabs, segments, the view and density switches. An option NOT chosen sits on
+     the CARDS' own surface, never on the page ground (`.claude/rules/ui.md`
+     rule 11, owner 2026-11-19): a beige chip among white cards read as a
+     different kind of thing, and it was the same complaint he made about the
+     unselected yes/no tile inside a dialog. So one pair of tokens now, out on a
+     page and inside a dialog alike: at rest the card's surface with an edge you
+     can see (`--border`, ≥ 3:1 on every ground), chosen the brand, filled —
+     drawn as the brand's own three-step gradient, dark at the top left
+     (`--brand-gradient`, below), the way the shell is. What makes a row read as
+     one group is the shared edge, the equal boxes and the one small gap between
+     them, not a ground of its own. Every reader of these paints them with the
+     `background` shorthand, so a gradient goes where a colour went. */
   --segment-track: transparent;
   --segment-pad: 0;
   --segment-gap: 0.375rem;
-  --segment-item: var(--neutral-soft);
+  --segment-item: var(--surface);
   --segment-item-border: var(--border);
   --segment-item-hover-border: var(--text-2);
   --color-segment-active: var(--brand-gradient);
@@ -130,6 +136,13 @@
   --figure-chip-expense: var(--expense-text);
   --figure-chip-goal: var(--goal-text);
   --figure-chip-invest: var(--invest-text);
+  /* A money dialog's header band (rule 15a, «A money dialog's tone goes on its
+     HEADER» below). Stronger than a tone's ordinary wash, which at 6% barely
+     showed as a band at all — the green especially, over the warm off-white.
+     As strong as the body ink allows at 8:1: gold's dark card with the green
+     sets the ceiling, 8.28 here (contrast.test.ts, «dialog head»). Only the
+     body ink goes on it — a dialog's header carries no secondary text. */
+  --dialog-tone-wash: 14%;
   /* Over a dialog's dimmed backdrop, a dialog taller than the screen scrolls
      on a light thumb: the card's own near-white. */
   --scrollbar-thumb-backdrop: color-mix(in srgb, var(--surface) 85%, transparent);
@@ -147,6 +160,7 @@
   --figure-chip-expense: var(--expense-text);
   --figure-chip-goal: var(--goal-text);
   --figure-chip-invest: var(--invest-text);
+  --dialog-tone-wash: 18%;
   --scrollbar-thumb-backdrop: color-mix(in srgb, var(--text-2) 50%, transparent);
   --scrollbar-thumb-backdrop-hover: color-mix(in srgb, var(--text-2) 72%, transparent);
 }
@@ -748,6 +762,40 @@
   }
 }
 
+/* ── A money dialog's tone goes on its HEADER ────────────────────────────────
+   Rule 15a (owner, 2026-11-19). A dialog about money going out, or money I owe,
+   wears the red tone; money coming in, or owed to me, the green. It used to be
+   a 6% wash over the whole BODY (`.wash-expense` / `.wash-income` in index.css,
+   deleted with this rule), and on the debts dialogs the red ground swallowed the red and green figures
+   written on it — the one thing those dialogs exist to show. So the tone moves
+   to the header band and the body stays the ordinary dialog surface.
+
+   The band is the tone mixed into the card surface at `--dialog-tone-wash`
+   (above: 14% in daylight, 18% in the dark — a tone's ordinary 6% wash barely
+   showed as a band) with a thick edge under it in the tone at
+   `--{tone}-edge-strong`. The strip of colour does the telling, and the title
+   on it is the ordinary body ink: contrast.test.ts measures `text` on «{tone}
+   dialog head» in both colourways and both modes, so it stays ≥ 8:1. Nothing
+   is lettered in the tone here — a red title on a red band is the mistake this
+   rule undoes.
+
+   Handed out by `moneyToneHead(tone)` (shared/components/formModal.ts), never
+   written by a dialog. */
+
+.modal-header.tone-head {
+  border-bottom-width: 2px;
+}
+
+.modal-header.tone-head-expense {
+  background: color-mix(in srgb, var(--expense) var(--dialog-tone-wash), var(--surface));
+  border-bottom-color: var(--expense-edge-strong);
+}
+
+.modal-header.tone-head-income {
+  background: color-mix(in srgb, var(--income) var(--dialog-tone-wash), var(--surface));
+  border-bottom-color: var(--income-edge-strong);
+}
+
 /* ── Every dialog and sheet arrives and leaves the same way ──────────────────
    A fade with a slight rise, the backdrop fading with it. Bootstrap's own was
    a 0.15s fade over a 0.3s, 50px slide DOWN: the fade finished while the
@@ -958,21 +1006,14 @@
 }
 
 /* ── Controls inside a form: the input's white, not the page's beige ─────────
-   Out on a page a resting tab, chip or secondary button is the soft neutral
-   (`--neutral-soft`, warm in daylight) so it reads apart from the card. Inside
-   a dialog it sits beside inputs, which are `--surface` with the `--border`
-   edge — and a beige option among white fields read as disabled or as a
-   different kind of thing (the owner, on the unselected yes/no tile). So in a
-   dialog every resting control takes the input's ground and edge: the shared
-   two-way choice (Segmented, YesNoChoice: `--segment-item`) and Bootstrap's
-   secondary / light buttons. Under the pointer they still step to
-   `--page-inset`; chosen they are still the brand. Text on them is the same
+   A resting control sits beside inputs, which are `--surface` with the
+   `--border` edge — and a beige option among white fields read as disabled or
+   as a different kind of thing (the owner, on the unselected yes/no tile). The
+   shared one-of-many controls take that ground everywhere now, on a page too
+   (`--segment-item`, at the top of this file, rule 11); Bootstrap's secondary
+   and light buttons still need saying inside a dialog. Under the pointer they
+   step to `--page-inset`; chosen they are the brand. Text on them is the same
    roles on `--surface` (contrast.test.ts, ≥ 8:1). */
-.modal-content {
-  --segment-item: var(--surface);
-  --segment-item-border: var(--border);
-}
-
 .modal-content .btn-secondary,
 .modal-content .btn-light {
   --bs-btn-bg: var(--surface);

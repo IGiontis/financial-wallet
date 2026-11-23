@@ -22,12 +22,13 @@ import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Trans, useTranslation } from "react-i18next";
 import { validationMessage } from "../../shared/utils/validationMessage";
-import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { useGoalPartsField } from "./components/useGoalPartsField";
 import { addMonths } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import segmented from "../../shared/css/Segmented.module.css";
@@ -337,16 +338,21 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           )}
         </ModalBody>
 
-        <ModalFooter className="justify-content-between">
-          {step === "what" ? (
-            <Button type="button" color="secondary" outline onClick={handleClose}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])} disabled={formik.isSubmitting}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
+        {/* Ακύρωση / Πίσω on the left, the way forward on the right; a delete would go
+            first on the left with the rule between them (rule 15b, `DialogFooter`). */}
+        <DialogFooter
+          back={
+            step === "what" ? (
+              <Button type="button" color="secondary" outline onClick={handleClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])} disabled={formik.isSubmitting}>
+                ‹ {t("common.back")}
+              </Button>
+            )
+          }
+        >
           {step === "review" ? (
             <Button type="submit" color="primary" disabled={formik.isSubmitting}>
               {formik.isSubmitting ? t("goals.creating") : t("goals.confirmAndCreate")}
@@ -356,7 +362,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+        </DialogFooter>
       </form>
     </Modal>
   );

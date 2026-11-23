@@ -52,7 +52,7 @@ export default function SliceTransactionsModal({ title, transactions, total, cat
   return (
     <Modal isOpen={title !== null} toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: "var(--fs-lead)" }}>{title}</span>
+        {title}
       </ModalHeader>
 
       <ModalBody className="pt-2">

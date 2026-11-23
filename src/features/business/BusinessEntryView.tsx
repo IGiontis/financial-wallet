@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { DialogFooter } from "../../shared/components/DialogFooter";
 import { useTranslation } from "react-i18next";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../shared/components/DeleteButton";
@@ -108,13 +109,13 @@ export function BusinessEntryView({
           )}
         </div>
       </ModalBody>
-      <ModalFooter className="justify-content-between">
-        <DeleteButton opensConfirm onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />
+      {/* Delete far left, a rule, then the way out (rule 15b, `DialogFooter`). */}
+      <DialogFooter remove={<DeleteButton opensConfirm onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />}>
         <Button color="primary" onClick={onEdit}>
           <FiEdit2 size={14} className="me-1" aria-hidden />
           {t("common.edit")}
         </Button>
-      </ModalFooter>
+      </DialogFooter>
     </Modal>
   );
 }

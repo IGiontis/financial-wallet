@@ -1,7 +1,11 @@
 /* The small switch between two or three views of the same rows — see
    ViewSwitch.tsx. One outlined strip, sized to its words, the chosen one
    in the colourway's brand (`--view-switch-*`, styles/theme.css): nothing
-   like the full-width tabs of a page. */
+   like the full-width tabs of a page.
+
+   An option not chosen rests on the cards' own surface, never the page ground
+   (rule 11): the same `--segment-item` the page tabs and the segmented control
+   read, so one token covers every one-of-many control in the app. */
 
 .switch {
   display: inline-flex;
@@ -9,7 +13,7 @@
   max-width: 100%;
   border: 1px solid var(--view-switch-border);
   border-radius: var(--border-radius-sm);
-  background: var(--color-surface);
+  background: var(--segment-item);
   overflow: hidden;
 }
 
@@ -107,7 +111,7 @@
   .stack .option {
     flex-direction: column;
     min-width: 0;
-    background: var(--color-surface);
+    background: var(--segment-item);
     gap: 0.1875rem;
     min-height: 3.25rem;
     padding: 0.375rem var(--space-1);

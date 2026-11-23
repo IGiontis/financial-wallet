@@ -5,7 +5,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FiBriefcase, FiChevronRight, FiEdit2, FiEye, FiTrash2 } from "react-icons/fi";
 import { PageShell } from "../../shared/components/PageShell";
-import { AddHeader } from "../../shared/components/AddButton";
+import { PageHeader } from "../../shared/components/PageHeader";
 import { PageTabs } from "../../shared/components/PageTabs";
 import { RowMenu } from "../../shared/components/RowMenu";
 import { InfoLegend } from "../../shared/components/InfoLegend";
@@ -61,12 +61,12 @@ import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 // tab. The menu leads to each; neither page draws link tabs to the other, so
 // the main page keeps its ONE tab row (a page never shows two).
 //
-// The anatomy of every page (CLAUDE.md): the «+» header (`AddHeader`) — a new
-// closing here, a new business on «Οι δουλειές μου» — the one business picker
-// under its title («Όλες οι δουλειές ▾», the owner's mockup A, kept in the
-// address as `?business=`), the tabs straight under them with the open one in
-// the address (`?tab=`), and whatever belongs to one tab — the month ‹ ›, the
-// tiles — inside that tab. One month is shared by the tabs.
+// The anatomy of every page (CLAUDE.md): the shared header card (`PageHeader`)
+// with the «+» — a new closing here, a new business on «Οι δουλειές μου» — and
+// inside the same card the one business picker («Όλες οι δουλειές ▾», the
+// owner's mockup A, kept in the address as `?business=`) and the tabs with the
+// open one in the address (`?tab=`); whatever belongs to one tab — the month
+// ‹ ›, the tiles — lives inside that tab. One month is shared by the tabs.
 //
 // Switched on per account in Settings (`useHasAccess("business")`); off, the
 // page is not there and reads nothing. Its closings are read only when it is
@@ -118,8 +118,7 @@ function BusinessWaiting() {
   const { t } = useTranslation();
   return (
     <PageShell>
-      <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("business.title")}</h1>
-      <p className="small text-body-secondary mb-3">{t("business.subtitle")}</p>
+      <PageHeader title={t("business.title")} subtitle={t("business.subtitle")} />
       <PageWaiting />
     </PageShell>
   );
@@ -245,14 +244,16 @@ function BusinessScreen() {
 
   return (
     <PageShell>
-      <AddHeader label={addLabel} onAdd={add} disabled={businessesMissing} title={t("business.title")} subtitle={t("business.subtitle")} className={businesses.length > 1 ? "mb-2" : "mb-3"} />
-      {/* One business or all of them, for every tab: the owner's mockup A. Only once there is a choice to make. */}
-      {businesses.length > 1 && (
-        <div className="mb-3">
-          <GoalPickMenu label={t("business.pickerLabel")} value={filter ?? ALL} options={picks} onChange={(id) => setFilter(id === ALL ? undefined : id)} icon={FiBriefcase} />
-        </div>
-      )}
-      <PageTabs base={TABS_BASE} label={t("business.title")} tabs={tabs} value={tab} onChange={setTab} />
+      {/* The shared header card. Inside it: one business or all of them, for every
+          tab (the owner's mockup A — only once there is a choice to make), then the tabs. */}
+      <PageHeader title={t("business.title")} subtitle={t("business.subtitle")} addLabel={addLabel} onAdd={add} addDisabled={businessesMissing}>
+        {businesses.length > 1 && (
+          <div className="mb-3">
+            <GoalPickMenu label={t("business.pickerLabel")} value={filter ?? ALL} options={picks} onChange={(id) => setFilter(id === ALL ? undefined : id)} icon={FiBriefcase} />
+          </div>
+        )}
+        <PageTabs base={TABS_BASE} label={t("business.title")} tabs={tabs} value={tab} onChange={setTab} />
+      </PageHeader>
 
       {tab === "overview" &&
         panel(
@@ -426,7 +427,7 @@ function ManageScreen() {
 
   return (
     <PageShell>
-      <AddHeader label={label} onAdd={add} disabled={full || settingsGuard.locked || businessesMissing} title={t("business.tabBusinesses")} subtitle={t("business.manageSubtitle")} />
+      <PageHeader title={t("business.tabBusinesses")} subtitle={t("business.manageSubtitle")} addLabel={label} onAdd={add} addDisabled={full || settingsGuard.locked || businessesMissing} />
       {load === "loading" ? (
         <SkeletonRows count={3} />
       ) : load === "waiting" ? (
