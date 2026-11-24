@@ -1,9 +1,35 @@
 import { type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isSameDay } from "date-fns";
-import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
+import { FiAlertCircle, FiAlertTriangle, FiCheck, FiClock, FiFlag } from "react-icons/fi";
+import type { IconType } from "react-icons";
 import styles from "../css/MoneyTree.module.css";
 import { dateFormat } from "../utils/dates";
+
+/**
+ * Which mark a leaf's state carries. Each one differs in SHAPE as well as in
+ * colour, so the phone's icon-only state (see `MoneyTree`) still tells them
+ * apart: ✓ it happened · ! its day is here · ⚠ late · ◷ still to come ·
+ * ⚑ it starts here.
+ */
+export type TreeLeafStateKind = "done" | "due" | "late" | "coming" | "first";
+
+const STATE_ICON: Record<TreeLeafStateKind, IconType> = {
+  done: FiCheck,
+  due: FiAlertCircle,
+  late: FiAlertTriangle,
+  coming: FiClock,
+  first: FiFlag,
+};
+
+/** What a leaf's state says: the mark, the word, and anything beside it («σε 3 μέρες»). */
+export interface TreeLeafState {
+  kind: TreeLeafStateKind;
+  /** The word. Always in the accessible name; shown as a word from 576px up. */
+  word: string;
+  /** Beside the word — «σε 3 μέρες». Shown from 576px up; on a phone it stays in the accessible name. */
+  extra?: string;
+}
 
 /** One thing on a day: a leaf of the tree. */
 export interface TreeLeaf {
@@ -13,7 +39,9 @@ export interface TreeLeaf {
   /** Always positive: `direction` says which way. */
   amount: number;
   icon?: string;
-  /** Under the name: its state, its category — whatever the page says of it. */
+  /** Beside the figure: its state, with the mark the kind gives it. */
+  state?: TreeLeafState;
+  /** Beside the figure where there is no state: its category — whatever the page says of it. */
   note?: ReactNode;
   /** Quiet and struck through: it has happened. */
   done?: boolean;
@@ -35,14 +63,29 @@ export interface TreeDay {
  * Money as a tree: the days down a trunk, each day a node on it, and what
  * lands on it as leaves either side.
  *
+ * A leaf reads down, not across (owner, 2026-11-24, «option Β»): the name on a
+ * line of its own, and under it the state on the left and the figure on the
+ * right, bigger and bold. Side by side, the name had a third of a 320px leaf
+ * and «Ενοίκιο γκαρσονιέρας» broke mid-word; now nothing wraps mid-word and
+ * nothing is cut. The ↙/↗ direction mark is gone with it — the sign and the
+ * colour already say which way the money went — but its word stays in the
+ * accessible name.
+ *
+ * **The phone shows the state as an ICON alone** (owner, 2026-11-24). Rule 14
+ * of `.claude/rules/ui.md` is «icon + word, never colour alone»; this is its
+ * one exception, and only under 576px («μόνο icons εννοώ στο κινητό, στο pc ας
+ * φαίνεται κανονικά το text»). The word is never removed, only clipped
+ * (`MoneyTree.module.css`), so a screen reader and the tooltip still say it,
+ * and each mark differs in shape as well as colour (see `TreeLeafStateKind`).
+ *
  * One side rule, in every tree in the app: money in grows to the LEFT of the
  * trunk and money out to the RIGHT — even in a tree of one kind, so a
  * bills-only tree hangs everything right and an incomes-only one everything
  * left. The side itself says in or out at a glance, before the colour and the
  * sign do. (One-sided trees used to let the days take turns, which made the
  * side mean nothing.) On a phone, or in a narrow column, the trunk moves to
- * the left edge and every leaf hangs to its right; there the colour, the sign
- * and a small ↙/↗ mark on each leaf carry what the side no longer can.
+ * the left edge and every leaf hangs to its right; there the sign and the
+ * colour of the figure carry what the side no longer can.
  *
  * Only the drawing: the timelines (`MoneyTimeline`) and «Συναλλαγές» each say
  * what the days and leaves are.
@@ -74,28 +117,36 @@ export function MoneyTree({
 
   let index = 0;
   const leaf = (item: TreeLeaf) => {
+    const StateIcon = item.state ? STATE_ICON[item.state.kind] : undefined;
+    const direction = t(item.direction === "in" ? "timeline.dirIn" : "timeline.dirOut");
     const body = (
       <>
-        {item.icon && (
-          <span className={styles.leafIcon} aria-hidden>
-            {item.icon}
-          </span>
-        )}
-        <span className={styles.leafText}>
+        <span className={styles.leafHead}>
+          {item.icon && (
+            <span className={styles.leafIcon} aria-hidden>
+              {item.icon}
+            </span>
+          )}
           <span className={styles.leafName}>{item.label}</span>
-          {item.note && <span className={styles.leafNote}>{item.note}</span>}
         </span>
-        {/* In or out, where the side no longer says it (a narrow tree). */}
-        {!item.neutral && (
-          <span className={styles.leafDir} title={t(item.direction === "in" ? "timeline.dirIn" : "timeline.dirOut")}>
-            {item.direction === "in" ? <FiArrowDownLeft aria-hidden /> : <FiArrowUpRight aria-hidden />}
-            <span className="visually-hidden">{t(item.direction === "in" ? "timeline.dirIn" : "timeline.dirOut")}</span>
+        <span className={styles.leafFoot}>
+          {item.state && StateIcon ? (
+            <span className={styles.leafState} title={`${item.state.word}${item.state.extra ? ` · ${item.state.extra}` : ""}`}>
+              <StateIcon size={12} aria-hidden />
+              {/* Clipped under 576px, never dropped: the word stays the state's name. */}
+              <span className={styles.stateWord}>{item.state.word}</span>
+              {item.state.extra && <span className={styles.stateExtra}>{` · ${item.state.extra}`}</span>}
+            </span>
+          ) : (
+            item.note && <span className={styles.leafNote}>{item.note}</span>
+          )}
+          <span className={styles.leafAmount}>
+            {item.neutral ? "" : item.direction === "in" ? "+" : "−"}
+            {item.approximate ? "≈" : ""}
+            {formatCurrency(item.amount)}
+            {/* The arrow is gone; the way the money went is still spoken. */}
+            {!item.neutral && <span className="visually-hidden">{` ${direction}`}</span>}
           </span>
-        )}
-        <span className={styles.leafAmount}>
-          {item.neutral ? "" : item.direction === "in" ? "+" : "−"}
-          {item.approximate ? "≈" : ""}
-          {formatCurrency(item.amount)}
         </span>
       </>
     );

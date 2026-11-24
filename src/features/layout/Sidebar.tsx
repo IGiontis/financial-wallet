@@ -433,8 +433,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           path: "/calendar",
           label: t("nav.calendar"),
           icon: FiGrid,
+          // Each child says what is IN it (owner, 2026-11-24): a plain
+          // «Ημερολόγιο» under «Ημερολόγιο» told the reader nothing.
           children: [
-            { path: "/calendar", label: t("nav.calendar"), icon: FiGrid },
+            { path: "/calendar", label: t("nav.calendarPlanned"), icon: FiGrid },
             { path: "/calendar/transactions", label: t("nav.transactionsCalendar"), icon: FiCalendar },
           ],
         },

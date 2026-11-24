@@ -19,6 +19,7 @@ import {
   readCheckIns,
   realDelta,
   recordsSinceByAccount,
+  spendCheck,
   unloggedBetween,
   withoutAccount,
   type BalanceCheckIn,
@@ -598,5 +599,88 @@ describe("free money per account (item 97d)", () => {
     expect(orderByFree(many, free).map((a) => a.id)).toEqual(["rev", "eb", "cash", "x"]);
     // Equal free money keeps the usual order.
     expect(orderByFree(accounts, { eb: free.eb, rev: { ...free.rev, free: 50 } }).map((a) => a.id)).toEqual(["eb", "rev", "cash"]);
+  });
+});
+
+describe("spending more than an account holds (owner, 2026-11-24)", () => {
+  // Read on the 21st: Eurobank 1,950, Revolut 180, cash 120. Three expenses
+  // since (62.40 + 45 + 13 = 120.40) all land on the main account, Eurobank:
+  // 1,950 − 120.40 = 1,829.60 — the figure `expectedByAccount` gives above.
+  const readings = readCheckIns([c1], accounts, logged);
+  const latest = readings[0];
+  const check = (id: string | undefined, amount: number) => spendCheck(accounts, latest, logged, id, amount);
+
+  it("says nothing while the money is there", () => {
+    expect(check("cash", 120)).toEqual({ kind: "ok" });
+    expect(check("cash", 119.995)).toEqual({ kind: "ok" });
+    expect(check("eb", 1829.6)).toEqual({ kind: "ok" });
+  });
+
+  it("REFUSES cash that is not there, and says how much is missing", () => {
+    // His own case: 3,00 € of cash and a 3,50 € expense. Here: 120 and 120.50.
+    expect(check("cash", 120.5)).toEqual({ kind: "refuse", on: "cash", holds: 120, short: 0.5 });
+    // A second way to the same gap: the amount less what the reading said the
+    // pocket held, nothing since having touched the cash.
+    const cashSince = logged.filter((row) => row.accountId === "cash");
+    expect(cashSince).toHaveLength(0);
+    expect(120.5 - c1.amounts.cash).toBeCloseTo(0.5, 2);
+  });
+
+  it("refuses a card below zero too, in its own words (owner, 2026-11-24)", () => {
+    // «ούτε οι κάρτες να μπορούν να πάνε κάτω από το 0». The kind is kept so
+    // the message can differ: a card more often means the balance is behind.
+    expect(check("eb", 1900)).toEqual({ kind: "refuse", on: "bank", holds: 1829.6, short: 70.4 });
+    expect(check("rev", 200)).toEqual({ kind: "refuse", on: "bank", holds: 180, short: 20 });
+    // Reconciled the other way: Revolut was read at 180 and nothing since
+    // touched it, so 200 is exactly 20 more than it holds.
+    expect(200 - c1.amounts.rev).toBe(20);
+  });
+
+  it("never refuses on a guess: no account, no reading, an unread account, an empty amount", () => {
+    expect(check(undefined, 500)).toEqual({ kind: "ok" });
+    expect(check("gone", 500)).toEqual({ kind: "ok" });
+    expect(spendCheck(accounts, undefined, logged, "cash", 500)).toEqual({ kind: "ok" });
+    expect(check("cash", 0)).toEqual({ kind: "ok" });
+    expect(check("cash", Number.NaN)).toEqual({ kind: "ok" });
+    // An account the reading never read: added after it.
+    const added = [...accounts, { id: "new", name: "Νέο", kind: "cash" } as MoneyAccount];
+    expect(spendCheck(added, latest, logged, "new", 999)).toEqual({ kind: "ok" });
+  });
+
+  it("counts what was spent since the reading, not only the reading", () => {
+    // 13 € of the cash already went on the 26th, so the pocket holds 107, not 120.
+    const rows = [...logged, tx(13, 26, { accountId: "cash" })];
+    const fresh = readCheckIns([c1], accounts, rows);
+    expect(spendCheck(accounts, fresh[0], rows, "cash", 110)).toEqual({ kind: "refuse", on: "cash", holds: 107, short: 3 });
+    // Reconciled the other way: 120 read − 13 spent = 107 in the pocket.
+    expect(expectedByAccount(accounts, fresh[0], rows).cash).toBe(107);
+  });
+});
+
+describe("editing a record that already took money (owner, 2026-11-24)", () => {
+  // Cash read at 120 with nothing since: `logged` all land on the main account.
+  const spent = [...logged, tx(100, 26, { accountId: "cash" })];
+  const fresh = readCheckIns([c1], accounts, spent);
+
+  it("asks only for the DIFFERENCE, not for the whole new amount", () => {
+    // The pocket now reads 20: 120 read, 100 spent by the record being edited.
+    expect(expectedByAccount(accounts, fresh[0], spent).cash).toBe(20);
+    // Raising that record to 115 asks for 15 more, and 20 is there.
+    expect(spendCheck(accounts, fresh[0], spent, "cash", 115, 100)).toEqual({ kind: "ok" });
+    // Without giving the old amount back it would read as 115 against 20 — the bug this prevents.
+    expect(spendCheck(accounts, fresh[0], spent, "cash", 115)).toEqual({ kind: "refuse", on: "cash", holds: 20, short: 95 });
+  });
+
+  it("still refuses when even the difference is not there", () => {
+    // 121 against the 120 the pocket held before the record: one euro short.
+    expect(spendCheck(accounts, fresh[0], spent, "cash", 121, 100)).toEqual({ kind: "refuse", on: "cash", holds: 120, short: 1 });
+    // Reconciled the other way: 20 left + 100 given back = 120, and 121 − 120 = 1.
+    expect(20 + 100).toBe(c1.amounts.cash);
+  });
+
+  it("gives nothing back when the record moves to another account", () => {
+    // The same record moved onto Revolut (180, untouched): the whole 115 leaves THAT card.
+    expect(spendCheck(accounts, fresh[0], spent, "rev", 115, 0)).toEqual({ kind: "ok" });
+    expect(spendCheck(accounts, fresh[0], spent, "rev", 215, 0)).toEqual({ kind: "refuse", on: "bank", holds: 180, short: 35 });
   });
 });

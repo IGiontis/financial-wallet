@@ -166,8 +166,8 @@ export function GoalsWorkbench({
 
   return (
     <>
-      {/* The shared header card (`PageHeader`): the «+» pinned left, the title
-          beside it, and the three tabs inside the same card.
+      {/* The shared header band (`PageHeader`): the «+» pinned left, the title
+          beside it, and the three tabs as the band's own base.
           `goal-views` and each tab's `data-view` are what the demo's guided tour
           presses to put the cards on screen before it points at one. */}
       <PageHeader title={title} subtitle={subtitle} addLabel={addLabel} onAdd={onAdd}>

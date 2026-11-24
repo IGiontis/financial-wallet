@@ -367,7 +367,8 @@ describe("an item with pages under it", () => {
     await userEvent.click(calendar);
     const pages = within(document.getElementById(calendar.getAttribute("aria-controls")!)!).getAllByRole("link");
     expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
-      ["Calendar", "/calendar"],
+      // Each child says what is in it; the parent keeps the plain name.
+      ["Payments & income", "/calendar"],
       ["Transactions calendar", "/calendar/transactions"],
     ]);
   });
@@ -377,7 +378,7 @@ describe("an item with pages under it", () => {
     renderAt("/calendar/transactions");
     expect(within(sidebar()).getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-expanded", "true");
     expect(within(sidebar()).getByRole("link", { name: "Transactions calendar" })).toHaveAttribute("aria-current", "page");
-    expect(within(sidebar()).getByRole("link", { name: "Calendar" })).not.toHaveAttribute("aria-current");
+    expect(within(sidebar()).getByRole("link", { name: "Payments & income" })).not.toHaveAttribute("aria-current");
   });
 
   it("«Δικαιούχοι & κατηγορίες» is its own entry, a page per kind", async () => {

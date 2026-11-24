@@ -66,16 +66,21 @@ export function TransactionsCalendarTab({ transactions, renderRecords, now: give
         renderDay={(date, onLeave) => {
           const day = days.get(date.getDate());
           if (!day) return null;
+          // A day that moved borrowed money says two things, never one sum of
+          // both: what of it was the reader's own, and what was the loan's.
+          const borrowed = day.borrowedIn > 0 || day.borrowedOut > 0;
           return (
             <>
               {renderRecords(day.records, onLeave)}
-              {/* What the day came to, once there is more than one record to add up. */}
-              {day.records.length > 1 && (day.in > 0 || day.out > 0) && (
+              {/* What the day came to: its own money, once there is more than one record to add up — or always, where borrowed money would otherwise be read into it. */}
+              {(borrowed || (day.records.length > 1 && (day.in > 0 || day.out > 0))) && (
                 <div className={`${calendarStyles.sheetNet} mt-3`}>
-                  <span>{t("calendar.net")}</span>
+                  <span>{t(borrowed ? "transactions.calendar.ownNet" : "calendar.net")}</span>
                   <strong style={{ color: day.net < 0 ? "var(--color-expense-text)" : "var(--color-income-text)" }}>{signedMoney(day.net, formatCurrency)}</strong>
                 </div>
               )}
+              {day.borrowedIn > 0 && <p className={calendarStyles.sheetAside}>{t("transactions.calendar.borrowedIn", { amount: formatCurrency(day.borrowedIn) })}</p>}
+              {day.borrowedOut > 0 && <p className={calendarStyles.sheetAside}>{t("transactions.calendar.borrowedOut", { amount: formatCurrency(day.borrowedOut) })}</p>}
             </>
           );
         }}
@@ -85,11 +90,14 @@ export function TransactionsCalendarTab({ transactions, renderRecords, now: give
   );
 }
 
-/** For a screen reader: "Income +1.200,00 €, Expenses −45,00 €, 3 records". */
+/** For a screen reader: "Income +1.200,00 €, Expenses −45,00 €, loan money in 100,00 €, 3 records". */
 function spokenDay(day: TransactionDay, t: TFunction, formatCurrency: (n: number) => string) {
   const parts: string[] = [];
   if (day.in > 0) parts.push(`${t("calendar.in")} +${formatCurrency(day.in)}`);
   if (day.out > 0) parts.push(`${t("calendar.out")} −${formatCurrency(day.out)}`);
+  // The borrowed part is said too, and said as borrowed: the day's own figure leaves it out.
+  if (day.borrowedIn > 0) parts.push(t("transactions.calendar.borrowedIn", { amount: formatCurrency(day.borrowedIn) }));
+  if (day.borrowedOut > 0) parts.push(t("transactions.calendar.borrowedOut", { amount: formatCurrency(day.borrowedOut) }));
   parts.push(t("transactions.transactionCount", { count: day.records.length }));
   return parts.join(", ");
 }

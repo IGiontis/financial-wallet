@@ -9,6 +9,8 @@ import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { dayToDate, parseISODay, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay, dateFormat } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
+import { SpendNote } from "../accounts/SpendNote";
+import { useSpendCheck } from "../accounts/useSpendCheck";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, expectedByAccount, mainAccount } from "../accounts/accountsUtils";
 import { useStepTried } from "../../shared/hooks/useStepTried";
@@ -189,6 +191,10 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   });
 
   const typedAmount = Number(formik.values.amount) || 0;
+  // Paying a bill takes the money out of the card picked on the step before —
+  // the one it will really go against, which is the main account when the
+  // payment names none (rule 22).
+  const spend = useSpendCheck(picked || mainAccount(accounts)?.id, typedAmount);
   const differsFromEstimate = isVariable && Math.abs(typedAmount - suggestedInDisplay) > 0.01;
 
   const selectedPeriod = periods.find((p) => p.key === formik.values.periodKey);
@@ -308,6 +314,9 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
                 />
                 <FormFeedback>{formik.errors.amount && t(formik.errors.amount)}</FormFeedback>
+                {/* The card was chosen on the step before; this is where the
+                    two meet (rule 22). */}
+                <SpendNote check={spend} />
                 {differsFromEstimate && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("bills.differsFromEstimate")}</FormText>}
               </FormGroup>
             </>

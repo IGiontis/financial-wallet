@@ -1,4 +1,4 @@
-/* The chrome around a goal screen: the shared header card (`PageHeader`, which
+/* The chrome around a goal screen: the shared header band (`PageHeader`, which
    holds the «+», the title and the three tabs), and in each tab its own block —
    the overview's figures, or a search row over the cards or the list.
    See GoalsWorkbench.tsx, GoalsOverview.tsx. */

@@ -105,6 +105,46 @@ this file disagree, ask him — one of them is a bug.
   show at every width, small under each dot; where one does not fit it wraps, and only when
   even that fails is it cut with «…» (he accepted the «…»; wrapping is tried first because of
   «never truncate»).
+- **No account goes below zero** (2026-11-24, after he found a 3,00 € cash balance taken to
+  −0,50 € by a new transaction with no check at all; sharpened the same day to «ούτε οι κάρτες
+  να μπορούν να πάνε κάτω από το 0», which overruled the first answer of «cash refused, card
+  warned»): every form that takes money OUT refuses to save when the account cannot carry it,
+  and says so where the AMOUNT is typed — the card is chosen first («WHERE before HOW MUCH»),
+  so that is where the two meet; it re-runs when either changes. The words differ by kind:
+  cash that is not in the pocket cannot be spent, while a card more often means our balance is
+  behind, so there the message points at updating the card's balance. The balance used is what
+  the account should hold NOW (reading + records since), never its free money — cash set aside
+  for a goal is still cash. An account the last reading never read is never refused on a guess.
+  Applies to every money-out form, not only the one he found. **Still to come:** a card marked
+  as an overdraft or credit card, which MAY go below zero — he wants that designed when the
+  «κύρια τράπεζα» question leaves the account form. *Don't:* check only at the card step, or
+  refuse when the balance is unknown.
+- **The page header is a full-bleed BAND, with the page's tabs as its base** (2026-11-24,
+  mockup Β over a band with boxed tabs (Α) and a band in the shell's colour (Γ)): no card, no
+  radius, no gap above — it runs edge to edge and sits flush under the top bar, and the one row
+  of tabs underlines along its bottom edge, the active one in the brand. Replaces the header
+  card of 2026-11-19 and the boxed tab look INSIDE a header. *Don't:* give a page a header card
+  or a second row of tabs.
+- **A timeline leaf is name above, figures below** (2026-11-24, Β over one line with «…» (Α)
+  and one line with a status pill (Γ)): nothing wraps mid-word, nothing is cut, the amount is
+  the big thing on the second line. **On a phone the state is an icon alone** — ✓ ήρθε /
+  πληρώθηκε, ◷ έρχεται, ! πρέπει να πληρωθεί, ⚠ αργεί — and the WORD comes back from 576px up;
+  the icon always carries the word as its accessible name. This is the one exception to «status
+  is an icon AND a word» (ui.md 14), and it exists because the words did not fit a phone.
+- **Borrowed money does not inflate a day's total** (2026-11-24, Γ over neutral-and-excluded
+  (Α) and green-with-a-note (Β)): in the transactions calendar a loan's row is neutral with a
+  «δανεικά» mark, and the day shows TWO figures — «Δικά σου» without the borrowed part, and
+  «Μπήκαν δανεικά» under it. A day with nothing borrowed keeps its single total. The mirror
+  case is treated the same: a repayment's principal is neutral too and the day says «Βγήκαν
+  δανεικά». Interest is NOT borrowed money — it is a real cost and stays in the day's own
+  figure. What counts as borrowed is `isDebtTransfer` (`shared/utils/moneyModel.ts`), the same
+  rule the day's in/out totals already used, so the two can never disagree.
+- **Each calendar says what is in it** (2026-11-24, Γ): the section stays «Ημερολόγιο», its
+  pages are «Πληρωμές & έσοδα» (`/calendar`, only what is planned) and «Ημερολόγιο συναλλαγών»
+  (`/calendar/transactions`, what was really recorded). The same rule gave «Δικαιούχοι» and
+  «Κατηγορίες» their own titles once they became two pages.
+- **The timeline shows ONE month** (2026-11-24): the «3 μήνες / 6 μήνες / Έτος» choice is gone
+  from both calendars — the month, stepped with ‹ ›, is what the page is for.
 - **A dialog's tone follows the answer, and a step back unanswers it** (2026-11-24): the band
   takes its colour the moment the kind tile is tapped — not a step later — and a step BACK to
   that question clears the mark, the colour and the way forward («διάλεξα αλλά γύρισα πίσω, άρα

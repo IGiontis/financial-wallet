@@ -6,6 +6,8 @@ import { DateField } from "../../shared/components/DateField";
 import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
+import { SpendNote } from "../accounts/SpendNote";
+import { useSpendCheck } from "../accounts/useSpendCheck";
 import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
@@ -88,6 +90,9 @@ export default function RepaymentWizard({
     setStep(target);
   };
 
+  // Paying someone back takes the money out of the card picked on the step
+  // before; money coming back TO me takes nothing out (rule 22).
+  const spend = useSpendCheck(borrowed ? writtenAccount : undefined, value);
   const preview = amountOk && when ? previewRepayment(debt, value, when) : undefined;
   const cardName = (() => {
     if (account === undefined) return t("debts.noMoney");
@@ -171,6 +176,7 @@ export default function RepaymentWizard({
                 <InputGroupText>{t("debts.of", { amount: formatCurrency(debt.remaining) })}</InputGroupText>
                 <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
               </InputGroup>
+              <SpendNote check={spend} />
               <div className={styles.wizChips}>
                 {suggested !== debt.remaining && (
                   <button type="button" className={styles.wizChip} onClick={() => setAmount(String(suggested))}>

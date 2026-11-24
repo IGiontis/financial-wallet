@@ -15,6 +15,8 @@ import AccountPicker from "../../accounts/AccountPicker";
 import ReviewCard from "../../accounts/ReviewCard";
 import { useAccountList, useMoneyAccounts } from "../../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount } from "../../accounts/accountsUtils";
+import { SpendNote } from "../../accounts/SpendNote";
+import { useSpendCheck } from "../../accounts/useSpendCheck";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { adjustCheckInsForEdit } from "../../accounts/accountsUtils";
 import { usePayees } from "../hooks/usePayees";
@@ -277,6 +279,17 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     },
   });
 
+  // Can the card carry the CHANGE? What this expense already takes from the
+  // card it is still on is given back before the new amount is weighed; moved
+  // to another card, the whole amount leaves that one (rule 22).
+  const onSameAccount = (transaction.accountId ?? "") === chosenAccount(accounts, formik.values.accountId);
+  const spend = useSpendCheck(
+    formik.values.type === "expense" ? chosenAccount(accounts, formik.values.accountId) : undefined,
+    Number(formik.values.amount),
+    transaction.type === "expense" && onSameAccount ? displayAmount : 0,
+  );
+
+
   // «No change, no Save»: compared with what the form opened with. With fuel
   // details on, the amount is price × quantity (recomputed as the form opens),
   // so those two are what count, not the rounded total.
@@ -433,9 +446,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     readOnly={formik.values.showFuelDetails}
                     disabled={!!covered}
                     style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
-                    invalid={!!(formik.touched.amount && formik.errors.amount)}
+                    invalid={!!(formik.touched.amount && formik.errors.amount) || spend.blocked}
                   />
                   <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                  {/* The card must carry the CHANGE, not the whole amount over
+                      again: what this record already takes from it is given
+                      back first (rule 22, `already`). */}
+                  <SpendNote check={spend} />
                 </FormGroup>
               </Col>
               <Col xs={6}>
@@ -593,9 +610,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         {(step === "details" || step === "review") && (
           <div className="d-flex align-items-center gap-2">
             <UnchangedHint show={unchanged} />
-            {step === "details" && <Button color="primary" disabled={unchanged || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
+            {step === "details" && <Button color="primary" disabled={unchanged || checking || spend.blocked} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
             {step === "review" && (
-              <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting || checking || unchanged}>
+              <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting || checking || unchanged || spend.blocked}>
                 {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
               </Button>
             )}

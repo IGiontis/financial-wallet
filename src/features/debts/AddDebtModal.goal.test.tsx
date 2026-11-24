@@ -28,7 +28,13 @@ vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ muta
 const linked = vi.hoisted(() => ({ value: { link: undefined as unknown, goalName: undefined as string | undefined, ready: true, failed: false, retry: () => {} } }));
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => linked.value }));
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => [] }));
+// `useMoneyAccounts` too: the form asks it whether the card can carry what is
+// being lent (`useSpendCheck`, rule 22). No reading here, so nothing is ever
+// refused on a guess.
+vi.mock("../accounts/useMoneyAccounts", () => ({
+  useAccountList: () => [],
+  useMoneyAccounts: () => ({ accounts: [], latest: undefined, transactions: [], checkIns: [], setCheckIns: vi.fn() }),
+}));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
 beforeAll(async () => {

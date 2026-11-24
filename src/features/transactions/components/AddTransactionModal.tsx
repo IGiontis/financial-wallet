@@ -16,6 +16,8 @@ import AccountPicker from "../../accounts/AccountPicker";
 import ReviewCard from "../../accounts/ReviewCard";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount } from "../../accounts/accountsUtils";
+import { SpendNote } from "../../accounts/SpendNote";
+import { useSpendCheck } from "../../accounts/useSpendCheck";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
@@ -360,6 +362,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       markTried("account");
       return setStep("account");
     }
+    // Cash that is not there never reaches the review (rule 22): the note is
+    // already under the amount, so there is nothing more to say here.
+    if (spend.blocked) return;
     const errors = await formik.validateForm();
     if (Object.keys(errors).length === 0) {
       setStep("review");
@@ -367,6 +372,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       formik.setTouched(Object.keys(formik.values).reduce((acc, k) => ({ ...acc, [k]: true }), {}));
     }
   };
+
+  // Can this come off the card that was chosen a step back? Money OUT only —
+  // an income lands ON a card and takes nothing from it (rule 22).
+  const spend = useSpendCheck(formik.values.type === "expense" ? formik.values.accountId : undefined, Number(formik.values.amount));
 
   // The amount as typed, already in the display currency: shown, not converted again.
   const formatAmount = (n: number) => format(n, displayCurrency);
@@ -511,7 +520,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                     value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                     readOnly={formik.values.showFuelDetails}
                     style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
-                    invalid={!!(formik.touched.amount && formik.errors.amount)}
+                    invalid={!!(formik.touched.amount && formik.errors.amount) || spend.blocked}
                   />
                   <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
                 </FormGroup>
@@ -533,6 +542,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </FormGroup>
               </Col>
             </Row>
+
+            {/* Can it come off the card at all? The card was chosen a step back
+                («WHERE before HOW MUCH»), so this is where the two meet —
+                rule 22: cash that is not there is refused, a bank card warned. */}
+            <SpendNote check={spend} className="mt-1" />
 
             {/* ── Payee ── */}
             <Row className="g-3 mt-1">

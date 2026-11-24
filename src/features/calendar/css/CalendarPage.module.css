@@ -321,6 +321,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Money the day moved that is not its own — the loan that came in or went out
+   on it (owner, 2026-11-24). Under the day's own total, in the quiet ink: no
+   sign, no green, nothing to read as earned or spent. */
+.sheetAside {
+  margin: 4px 0 0;
+  font-size: var(--fs-text);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── A phone: square days, as on the Incomes calendar ──────────────────────── */
 /* Sharing the screen's height, a phone's seven narrow columns stretched into
    tall slivers. There the days are squares and the month as tall as it needs;

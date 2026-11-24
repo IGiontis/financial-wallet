@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import { MoneyTimeline } from "./MoneyTimeline";
@@ -73,31 +73,23 @@ describe("money as a tree", () => {
     expect(bills.container.querySelectorAll("[class*=_right_] li")).toHaveLength(2);
   });
 
-  it("spans three months, six or a year, and says each figure the months add up to", async () => {
+  it("shows one month, and the figures that month adds up to", async () => {
     tree("out");
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Year/ }));
-    expect(screen.getByText(/^Oct 2026 – Sept? 2027$/)).toBeInTheDocument();
-    // Twelve months of a 25 and a 400 bill: 12 × 425, a second way of reading the total.
-    expect(screen.getByText(`−${money(12 * (25 + 400))}`, { selector: "b" })).toBeInTheDocument();
-    // Drawn a few weeks at a time: 24 days with a bill on them and today, 21 drawn first.
-    const nodes = () => document.querySelectorAll("[class*=_node_]").length;
-    expect(nodes()).toBe(21);
-    await userEvent.click(screen.getByRole("button", { name: "Show 4 more days" }));
-    expect(nodes()).toBe(12 * 2 + 1);
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /3 months/ }));
-    expect(screen.getByText("Oct 2026 – Dec 2026")).toBeInTheDocument();
-    expect(screen.getByText(`−${money(3 * 425)}`, { selector: "b" })).toBeInTheDocument();
+    // October alone: the 400 rent of the 1st and the 25 phone of the 28th —
+    // worked out a second way, 425 against the sum of the two leaves below.
+    expect(screen.getByText("October 2026")).toBeInTheDocument();
+    expect(screen.getByText(`−${money(425)}`, { selector: "b" })).toBeInTheDocument();
+    expect(screen.getByText("Rent")).toBeInTheDocument();
+    expect(screen.getByText("Phone")).toBeInTheDocument();
   });
 
-  it("offers a month, 3, 6 or 12 months — no week — and steps a month at a time", async () => {
+  it("offers no period to choose — one month, stepped with the arrows (owner, 2026-11-24)", async () => {
     tree("all");
-    const spans = within(screen.getByRole("group", { name: "Period" })).getAllByRole("button");
-    expect(spans.map((button) => button.textContent)).toEqual(["Month1m", "3 months3m", "6 months6m", "Year12m"]); // each with its tiny-phone short form
-    expect(within(screen.getByRole("group", { name: "Period" })).queryByRole("button", { name: /Week/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Next period" }));
+    expect(screen.queryByRole("group", { name: "Period" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /3 months|6 months|^Year/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Next month" }));
     expect(screen.getByText("November 2026")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back to today" }));
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Month/ }));
     // The whole of October: the rent of the 1st, unpaid and so late; the phone; the salary.
     expect(screen.getByText("October 2026")).toBeInTheDocument();
     const rent = screen.getByText("Rent").closest("li")!;
@@ -108,12 +100,11 @@ describe("money as a tree", () => {
 
   it("goes no further than the sources reach, either way", async () => {
     render(<MoneyTimeline side="all" sources={sources} first={new Date(2026, 9, 1)} last={new Date(2026, 10, 1)} formatCurrency={money} locale="en" />);
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Month/ }));
     // October is the first month: no way back. November is the last: one step on, then none.
-    expect(screen.getByRole("button", { name: "Previous period" })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Next period" }));
+    expect(screen.getByRole("button", { name: "Previous month" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Next month" }));
     expect(screen.getByText("November 2026")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next period" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next month" })).toBeDisabled();
   });
 
   it("weighs each leaf by what it wants: to pay, to come, or done", async () => {

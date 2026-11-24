@@ -30,7 +30,13 @@ const spies = vi.hoisted(() => ({
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
 // The accounts a payment names; empty unless a test fills it.
 const accounts = vi.hoisted(() => ({ list: [] as { id: string; name: string; kind: "bank" | "cash"; main?: boolean }[] }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => accounts.list }));
+// `useMoneyAccounts` too: the repayment wizard asks it whether the card can
+// carry what is being paid (`useSpendCheck`, rule 22). No reading here, so the
+// balances are unknown and nothing is ever refused on a guess.
+vi.mock("../accounts/useMoneyAccounts", () => ({
+  useAccountList: () => accounts.list,
+  useMoneyAccounts: () => ({ accounts: accounts.list, latest: undefined, checkIns: [], transactions: [], setCheckIns: vi.fn() }),
+}));
 // The new-loan form can send borrowed money to a goal; none here.
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [] }) }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }), useTransactions: () => ({ data: [] }) }));

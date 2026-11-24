@@ -17,17 +17,25 @@ open Goals (`GoalsWorkbench`) and Debts/Bills in the demo and copy their anatomy
 calling it done, screenshot it beside them (320px and 1366px, light and dark, Greek) and fix
 every difference you can see.
 
-1. `PageShell` → the header: **`PageHeader`**  — the square «+»
-   (`AddButton`, icon only) pinned LEFT, then the `h1.h5` title and the one-line subtitle.
-   Never a text button («+ Κάτι») above or below the title.
-2. **Page tabs come straight under the header** — `PageTabs`, the boxed look, the ONE tab look
-   on every page (state tabs or child-route links); never wrap, scroll sideways when tight —
-   never below tiles or a month bar. Overview first. Anything that belongs to one tab
-   (tiles, month ‹ ›, charts) lives inside that tab's panel. The open tab is kept in the
-   address (`?tab=`). A sub-page of a menu entry is a child route in the sidebar, not an
-   inner tab of another page. **At most ONE row of tabs/selectors-of-pages per page**
-   (owner, 2026-11-17): a section's sub-pages are reached only from the sidebar — never a
-   row of link tabs over a page that has its own tabs or views (Bills, Incomes dropped theirs).
+1. `PageShell` → the header: **`PageHeader`**, a full-bleed BAND — the square «+»
+   (`AddButton`, icon only) pinned LEFT, then the `h1.h5` title and the one-line subtitle,
+   actions right. Never a text button («+ Κάτι») above or below the title, and never a gap,
+   a radius or a card edge around the band (rule 8).
+2. **Page tabs are the BASE of that band** — `PageTabs` inside `PageHeader`, the ONE tab look
+   on every page (state tabs or child-route links): an underline row on the band's bottom
+   edge, the chosen one bold and in the brand over a 2px brand line, the others `--text-2` on
+   the band's surface. **The words stand out** (owner, 2026-11-24 — «πιο bold να ξεχωρίζουν
+   ίσως και λίγο πιο μεγάλα»): a step up the scale from the boxed tabs, `--fs-lead`, weight
+   600 at rest and 700 on the chosen one — with no box around it a tab has only its lettering
+   to stand on. Never a px size, and never shrink the words to make the row fit: on a phone
+   the gap between them gives way first. No boxes in a header; the boxes are what `PageTabs`
+   wears anywhere else. Never wrap, scroll sideways when tight — never below tiles or a month bar. Overview
+   first. Anything that belongs to one tab (tiles, month ‹ ›, charts) lives inside that tab's
+   panel. The open tab is kept in the address (`?tab=`). A sub-page of a menu entry is a child
+   route in the sidebar, not an inner tab of another page. **At most ONE row of
+   tabs/selectors-of-pages per page** (owner, 2026-11-17): a section's sub-pages are reached
+   only from the sidebar — never a row of link tabs over a page that has its own tabs or
+   views (Bills, Incomes dropped theirs).
 3. Tiles, cards, rows, chips: reuse an existing page's components/classes (`tone-tile`,
    `GoalsOverview` tiles, `.stat-head`, `RowMenu`, `InfoLegend`) — no new look for the same
    thing. **Clickable cards/rows use the shared hover** (owner, 2026-11-17): `composes: hover-card` /
@@ -43,9 +51,17 @@ every difference you can see.
    then the page's frame and add with `PageWaiting`; never an empty state that isn't true. The
    user should never have to retry anything.
 7. Empty state = an invitation with the page's add, not an apology.
-8. **The page header is the shared card** (owner, 2026-11-19): one `PageHeader` — a soft card with
-   «+» left, title, one-line subtitle, actions right, and the page's ONE row of tabs/selectors inside
-   it. Never a header of a page's own.
+8. **The page header is the shared BAND** (owner, 2026-11-24, «option Β» — «να πιάνει από άκρη
+   σε άκρη, κολλημένο με το από πάνω»; it was a soft card from 2026-11-19): one `PageHeader` on
+   the page's `--surface`, flush against the top bar — no radius, no shadow, no margin above it —
+   running the full width of the content area (edge to edge on a phone, and from the sidebar to
+   the right edge on a desktop), with «+» left, title, one-line subtitle, actions right and the
+   page's ONE row of tabs/selectors at its foot as its base (rule 2). Its one hairline is its
+   bottom edge; below it the page keeps its normal padding. Not sticky. The notch is the top
+   bar's business — a page never re-adds `env(safe-area-inset-top)`. Never a header of a page's
+   own. (The two form pages, «Νέα συναλλαγή» and «Νέο κλείσιμο», are `PageShell.form-page`: the
+   shell there IS a rounded surface card, so the band keeps to its gutter instead of bleeding
+   past its corners — `PageShell.module.css`.)
 9. **A record with its own history and actions opens as a PAGE**, not a big dialog (owner,
    2026-11-17 — debts person/loan): title «Section › Name», «‹ Πίσω», its tabs; actions open as a
    step, never a dialog on a dialog.
@@ -93,8 +109,24 @@ every difference you can see.
     tapping the same answer loses nothing that was filled in after it. Applies to every wizard
     that asks the kind/direction inside itself (`AddTransactionModal`, planner `EntryEditor`).
 
+21. **A page or section name says what is IN it** (owner, 2026-11-24): «Ημερολόγιο» under
+    «Ημερολόγιο» told the reader nothing. A parent entry may stay general; every page under it,
+    and every page's own `PageHeader` title, names what that page lists — «Πληρωμές & έσοδα»,
+    «Ημερολόγιο συναλλαγών», «Δικαιούχοι», «Κατηγορίες».
+22. **No account goes below zero, and it is checked where the AMOUNT is typed** — MUST, every
+    form that takes money out (owner, 2026-11-24): `useSpendCheck` + `SpendNote`, Save refused
+    while it is short, in the kind's own words (cash is not in the pocket; a card's balance may
+    just be behind). The card is picked first, so the check belongs on the amount step and must
+    re-run when either changes — never only on the card step. An account whose balance is
+    unknown is never refused on a guess. A card that may be overdrawn is a later piece of work.
+23. **A page shows ONE period, stepped with ‹ ›** (owner, 2026-11-24): no «3 μήνες / 6 μήνες /
+    Έτος» rails that only make a longer scroll. Where a longer view is genuinely wanted, ask
+    him first.
+
 **These rules are the default for everything built from now on**, not a list of past fixes
-(owner, 2026-11-24): a new wizard, quick action, «+» or dialog copies them without being told.
+(owner, 2026-11-24): a new wizard, quick action, «+», dialog, header, list card or calendar
+copies them without being told, and the choices he made from mockups (docs/DECISIONS.md, «How
+it looks») are part of that default — they are not one-off fixes to those screens.
 
 `src/styles/uiConventions.test.ts` enforces what a test can see; the rest is checked by the
 side-by-side screenshots.

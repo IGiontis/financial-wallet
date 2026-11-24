@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { SavedCheck } from "./SavedCheck";
 import { DateField } from "../../../shared/components/DateField";
+import { SpendNote } from "../../accounts/SpendNote";
+import { useSpendCheck } from "../../accounts/useSpendCheck";
 import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -190,7 +192,9 @@ export default function TransferWizard({
     ...(note.trim() ? [{ step: "amount" as Step, label: t("transactions.transfer.note"), value: note.trim() }] : []),
   ];
 
-  const overdraw = fromAccount && before(from) !== undefined && Number.isFinite(value) && value > (before(from) as number) + 0.004;
+  // Moving money out of an account cannot take it below zero either (rule 22):
+  // the shared check, in the shared words, instead of this screen's own hint.
+  const spend = useSpendCheck(from, value);
 
   // ── The frame: a dialog, or the page itself ──
   const title = t(edit ? "transactions.transfer.editTitle" : "transactions.transfer.title");
@@ -314,11 +318,11 @@ export default function TransferWizard({
                   <RequiredMark />
                 </Label>
                 <InputGroup>
-                  <Input id="transfer-amount" aria-required type="number" inputMode="decimal" min={0} step="0.01" autoFocus value={amount} invalid={tried && problem === "amount"} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+                  <Input id="transfer-amount" aria-required type="number" inputMode="decimal" min={0} step="0.01" autoFocus value={amount} invalid={(tried && problem === "amount") || spend.blocked} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
                   <InputGroupText>{baseCurrency}</InputGroupText>
                   <FormFeedback>{t("transactions.transfer.amountNeeded")}</FormFeedback>
                 </InputGroup>
-                {overdraw && <div className="form-text">{t("transactions.transfer.moreThanHas", { name: fromAccount!.name, amount: formatCurrency(before(from) as number) })}</div>}
+                <SpendNote check={spend} />
               </FormGroup>
               <FormGroup>
                 <Label for="transfer-date" className="small fw-medium">
@@ -348,7 +352,7 @@ export default function TransferWizard({
                 ))}
               </div>
               <p className="small text-body-secondary mt-3 mb-0">{t("transactions.transfer.neither")}</p>
-              {overdraw && <p className="small mt-2 mb-0" style={{ color: "var(--color-pending-text)" }}>{t("transactions.transfer.moreThanHas", { name: fromAccount!.name, amount: formatCurrency(before(from) as number) })}</p>}
+              <SpendNote check={spend} className="mt-2" />
             </>
           )}
         </>,
@@ -361,12 +365,13 @@ export default function TransferWizard({
           step === "review" ? (
             <div className="d-flex align-items-center gap-2">
               <UnchangedHint show={unchanged} />
-              <Button type="submit" color="primary" disabled={!!problem || !day || unchanged}>
+              <Button type="submit" color="primary" disabled={!!problem || !day || unchanged || spend.blocked}>
                 {t("transactions.confirmAndSave")}
               </Button>
             </div>
           ) : step === "amount" ? (
-            <Button type="submit" color="primary">
+            // An amount the «from» account cannot carry does not reach the review (rule 22).
+            <Button type="submit" color="primary" disabled={spend.blocked}>
               {t("common.next")} ›
             </Button>
           ) : null,

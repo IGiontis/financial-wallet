@@ -11,18 +11,26 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 - `src/shared/components/PageShell.tsx` — the box every routed page sits in: one width, one padding;
   `narrow` for a form or reading column. Every page, loading state included (`PageShell.test.ts` checks the router).
-  Styles: `src/shared/css/PageShell.module.css`.
-- `src/shared/components/PageHeader.tsx` — **THE header of every page** (owner, 2026-11-19, «option Α»):
-  one soft card (the cards' `--surface` + `--border-soft` + `--radius-card` + `--shadow-sm`) holding, in one row,
-  the square icon-only «+» (`addLabel` + `onAdd`, optional, `addDisabled` greys it), the `h1.h5` `title`, the
-  one-line `subtitle` (optional) and an `actions` slot on the right (optional) — plus `backTo` / `backLabel`,
-  the «‹ Πίσω» link a record page needs; and, as `children` INSIDE the same card, the page's ONE row of
-  tabs/selectors (`PageTabs`, a `ViewSwitch`, a `DensitySwitch`, a `GoalPickMenu`). The last control's own
-  bottom margin is taken back, so the card's padding is the gap. Phone-first: the «+» keeps its 44px, the
+  It also publishes `--page-bleed-x` / `--page-bleed-top` — how far it holds the page off the content area's
+  edges — which only `PageHeader`'s band reads to pull itself out; on `.form-page` (the shell as a rounded
+  surface card) both are 0, so the band keeps to the card. Styles: `src/shared/css/PageShell.module.css`.
+- `src/shared/components/PageHeader.tsx` — **THE header of every page** (owner, 2026-11-24, «option Β»;
+  it was a soft card from 2026-11-19, «option Α»): one full-bleed BAND on the page's `--surface`, flush
+  against the top bar — no radius, no shadow, nothing above it, edge to edge across the content area, one
+  hairline (`--border-soft`) as its bottom edge — holding, in one row, the square icon-only «+»
+  (`addLabel` + `onAdd`, optional, `addDisabled` greys it), the `h1.h5` `title`, the one-line `subtitle`
+  (optional) and an `actions` slot on the right (optional) — plus `backTo` / `backLabel`, the «‹ Πίσω»
+  link a record page needs; and, as `children` at the band's FOOT, the page's ONE row of tabs/selectors
+  (`PageTabs`, a `ViewSwitch`, a `DensitySwitch`, a `GoalPickMenu`). A `PageTabs` in here becomes the
+  band's base: it reads the band's context (`src/shared/hooks/useInPageBand.ts`) and draws underlines
+  on the band's bottom edge instead of boxes — a page passes nothing. Any other control keeps its look and
+  its own bottom margin is taken back, so the band's padding is the gap. Not sticky, and it never re-adds
+  `env(safe-area-inset-top)` (the top bar paints the notch). Phone-first: the «+» keeps its 44px, the
   title wraps (never truncates), the actions drop to their own line before anything is squeezed.
   Reference: `DebtsPage`, `OverviewPage`, `DebtPersonPage` (the back link). Styles:
   `src/shared/css/PageHeader.module.css`. Tests: `PageHeader.test.tsx`, `pageHeader.convention.test.ts`
-  (every routed page of the signed-in app draws its header with it). Never a header of a page's own.
+  (every routed page of the signed-in app draws its header with it, and the band stays a band).
+  Never a header of a page's own.
 - `src/shared/components/AddButton.tsx` — `AddButton` (the square icon-only «+», `label` = aria/title,
   `small` in a row of small buttons). `PageHeader` draws the one in a page's header; use `AddButton`
   directly only elsewhere (an empty state, a card's own add). Never a text «+ Κάτι» button.
@@ -41,9 +49,18 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 ## Tabs & in-page views
 
-- `src/shared/components/PageTabs.tsx` — THE page tabs, the one tab look on every page (boxes, the chosen one
-  in the brand, no icons; one row that scrolls sideways with snap when tight, never wraps). Straight under the
-  header. Two modes, same markup:
+- `src/shared/components/PageTabs.tsx` — THE page tabs, the one tab look on every page: no icons, one row that
+  scrolls sideways with snap when tight, never wraps. Two grounds, decided by where it is drawn — a page
+  passes nothing:
+  - **inside `PageHeader`** (where a page's tabs belong): the band's BASE — an underline row on the band's
+    bottom edge, the chosen one in `--brand-text` over a 2px `--brand` line, the rest `--text-2` on the
+    band's surface, left-aligned at their words' width (owner, 2026-11-24, «option Β»). The lettering is a
+    step up from the boxed tabs — `--fs-lead`, weight 600, 700 on the chosen one — and on a phone the gap
+    between the words narrows (`--space-3`) rather than the words themselves. It asks
+    `useInPageBand()` and marks the strip `data-band`, which is how `PageHeader.module.css` hands it the
+    band's bottom padding so the underlines land on the band's own hairline.
+  - anywhere else: the boxes it has always worn (the chosen one the filled brand, `Segmented`'s tokens).
+  Two modes, same markup:
   - state tabs — `base`, `label`, `tabs: {id,label}[]`, `value`, `onChange`: a real tablist (arrows, Home/End,
     roving tabIndex, `data-view={id}` on each). Label the panel with `src/shared/utils/pageTabIds.ts`
     (`pageTabIds(base, tab)` → `{tab, panel}`). Keep the tab in `?tab=`. Reference: `BusinessPage`,
@@ -347,13 +364,27 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 - `src/features/calendar/components/MonthCalendar.tsx` — a month grid with header ‹ month ›, in/out totals and
   the picked day's list: say `dayOf` / `renderDay`. Any month calendar (Calendar, Business, transactions).
+  A day's foot: `CalendarPage.module.css` `.sheetNet` (the day's total, label left / figure right) and
+  **`.sheetAside`** — one quiet line under it for money the day moved that is not its own, e.g. «Μπήκαν
+  δανεικά 100,00 €» on «Ημερολόγιο συναλλαγών» (owner, 2026-11-24, «option Γ»): no sign, no green.
 - `src/features/calendar/dayTone.ts` — `dayTone({...})`: a day square's colour classes; `dayKey`
   (`src/features/calendar/components/dayKey.tsx`) builds the matching `InfoLegend` line.
 - `src/shared/components/InfoLegend.tsx` — what colours mean, behind an ⓘ: `title`, `entries: LegendEntry[]`
   (`id`, `swatch` drawn with the real classes, `text`), `children`. Never a key laid out under a chart.
   Styles: `src/shared/css/InfoLegend.module.css`.
 - `src/shared/components/MoneyTree.tsx` — days as a trunk with in/out leaves (`TreeDay[]`); via
-  `src/features/calendar/components/CalendarTimeline.tsx` on Bills/Incomes. Styles: `src/shared/css/MoneyTree.module.css`.
+  `src/features/calendar/components/CalendarTimeline.tsx` on Bills/Incomes, `MoneyTimeline` on both
+  calendars and «Συναλλαγές» → «Δέντρο». A leaf reads DOWN (owner, 2026-11-24, «option Β»): the name
+  on its own line, under it the state left and the figure right (`--fs-body`, bold) — side by side the
+  name had a third of a 320px leaf and «Ενοίκιο γκαρσονιέρας» broke mid-word. No ↙/↗ direction mark
+  any more (the sign and the colour say it; its word stays in the accessible name).
+  A leaf's state is DATA, not markup: `state: { kind, word, extra? }` (`TreeLeafState`), and the tree
+  owns the mark per kind — ✓ `done` · «!» `due` · ⚠ `late` · ◷ `coming` · ⚑ `first`, each a different
+  SHAPE as well as colour. **Under 576px the state is the icon ALONE** — rule 14 («icon + word») has
+  its one exception here (owner, 2026-11-24, «μόνο icons … στο κινητό»); the word and «σε 3 μέρες» are
+  clipped, never removed, so a screen reader and the tooltip still say them. `note` is the plain line
+  for a leaf with no state (a category, «Μεταφορά», «δανεικά»); `neutral` drops the sign for money that
+  only moved pocket. Styles: `src/shared/css/MoneyTree.module.css`.
 - `src/shared/components/MonthBars.tsx` — a run of months as bars (`MonthBar[]`, tone) — Bills, Incomes,
   GoalsOverview; `src/shared/utils/monthExtremes.ts` picks the highs/lows. Styles: `src/shared/css/MonthBars.module.css`.
 - `src/shared/components/SegmentedBar.tsx` — one bar, a piece per item, done ones filled (`BarSegment[]`,
@@ -447,6 +478,9 @@ Account card skins (`src/features/accounts/accountTones.ts`) and flags (`src/sha
 
 - `src/shared/components/PageAddProvider.tsx`, `src/shared/components/UpdatePrompt.tsx`,
   `src/shared/hooks/useAppUpdate.ts`, `src/shared/components/modalMotion.ts` (`installModalMotion`) — app shell.
+- `src/shared/hooks/useInPageBand.ts` — `PageBandContext` + `useInPageBand()`: am I inside the page header's
+  band? Set by `PageHeader`, asked by `PageTabs` (which then draws the band's underline base instead of its
+  boxes). Nothing else needs it.
 - `src/shared/hooks/useTheme.ts` — theme context (`useTheme`, `THEME_PREFERENCES`); use `ThemeSwitch` in UI.
 - `src/shared/hooks/useRowFlash.ts` — under `useSavedFlash`.
 - `src/shared/utils/offlinePolicy.ts` — the rule table behind `useOfflineGuard`.

@@ -63,7 +63,7 @@ export default function CalendarPage() {
   if (load === "waiting") {
     return (
       <PageShell className={styles.page}>
-        <PageHeader title={t("nav.calendar")} subtitle={t("calendar.scope")} />
+        <PageHeader title={t("nav.calendarPlanned")} subtitle={t("calendar.scope")} />
         <PageWaiting />
       </PageShell>
     );
@@ -73,7 +73,7 @@ export default function CalendarPage() {
     <PageShell className={styles.page}>
       {/* The shared header card, with this page's one row inside it: the month as
           a grid of days, or the same days as a tree, a week to a month at a time. */}
-      <PageHeader title={t("nav.calendar")} subtitle={t("calendar.scope")}>
+      <PageHeader title={t("nav.calendarPlanned")} subtitle={t("calendar.scope")}>
         <ViewSwitch
           block
           data-tour="calendar-views"

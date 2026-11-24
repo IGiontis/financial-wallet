@@ -9,6 +9,10 @@ function show(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
+// The band, not the card it was until 2026-11-24: the owner picked «option Β»
+// — edge to edge, flush under the top bar, the page's tabs its base. What the
+// band LOOKS like is CSS, checked in `pageHeader.convention.test.ts`; here is
+// what it holds and in what order.
 describe("PageHeader — the one header every page wears", () => {
   it("is the title alone when nothing else is given", () => {
     show(<PageHeader title="Στατιστικά" />);
@@ -52,18 +56,18 @@ describe("PageHeader — the one header every page wears", () => {
     expect(screen.getByRole("link", { name: /Πίσω/ })).toHaveAttribute("href", "/debts");
   });
 
-  it("holds the page's row of tabs or selectors inside the same card", () => {
+  it("holds the page's row of tabs or selectors inside the same band", () => {
     const { container } = show(
       <PageHeader title="Επισκόπηση" subtitle="Σήμερα">
         <div data-testid="tabs">tabs</div>
       </PageHeader>,
     );
-    const card = container.querySelector("section");
+    const band = container.querySelector("section");
     const tabs = screen.getByTestId("tabs");
-    expect(card).not.toBeNull();
-    expect(card?.contains(tabs)).toBe(true);
-    // The heading is in the same card, above them.
-    expect(card?.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
+    expect(band).not.toBeNull();
+    expect(band?.contains(tabs)).toBe(true);
+    // The heading is in the same band, above them.
+    expect(band?.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
     expect(screen.getByRole("heading", { level: 1 }).compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

@@ -250,26 +250,39 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose, lock 
 const isMoneyIn = (tx: Transaction) => (tx.isGoalTransaction || tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income");
 
 /**
- * One record on the phone: its icon, name and category, and its amount — a
- * card to tap, which opens it with its Edit and Delete. Two buttons on every
- * row took a third of its width from the name and made a list of fifteen a
- * column of thirty buttons.
+ * One record on the phone, and one record inside a day of «Ημερολόγιο
+ * συναλλαγών»: its icon, name and category, and its amount — a card to tap,
+ * which opens it with its Edit and Delete. Two buttons on every row took a
+ * third of its width from the name and made a list of fifteen a column of
+ * thirty buttons.
+ *
+ * **Borrowed money reads as neither earned nor spent** (owner, 2026-11-24): a
+ * loan that came into a card, and the repayment that leaves it, show no sign
+ * and the body's own ink — never the green that made a 100 borrowed look
+ * earned — with «δανεικά» beside the name. The day's foot then says what of
+ * the day was the reader's own and what the loan's
+ * (`TransactionsCalendarTab`). A repayment's interest is not one of these: it
+ * is a real cost and stays red.
  */
 function TransactionCard({ tx, categories, formatCurrency, onView, flash = "" }: { tx: Transaction; categories: Category[]; formatCurrency: (n: number) => string; onView: () => void; flash?: string }) {
   const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
   const isPositive = isMoneyIn(tx);
+  // A card only moved: a transfer between the reader's own accounts, or a
+  // debt's money (the sum borrowed or lent, and what comes off it).
+  const moved = !!tx.transferId || isDebtTransfer(tx);
   // A tag only where it says more than the amount's sign and colour already
-  // do: money into or out of a goal or an investment.
-  const kind =
-    tx.isGoalTransaction || isInvestment
+  // do: money into or out of a goal or an investment, or borrowed money.
+  const kind = isDebtTransfer(tx)
+    ? { label: t("transactions.loanMark"), style: tinted("--color-text-secondary") }
+    : tx.isGoalTransaction || isInvestment
       ? { label: tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit"), style: tx.isGoalTransaction ? getGoalBadgeStyle(tx.contributionType) : getInvestmentBadgeStyle(tx.contributionType) }
       : undefined;
 
   return (
     <button type="button" className={`${styles.txCard} ${flash}`.trim()} onClick={onView}>
-      <span className={styles.txIcon} style={{ background: tx.transferId ? "var(--color-background-secondary)" : isPositive ? "var(--income-wash)" : "var(--expense-wash)" }} aria-hidden>
+      <span className={styles.txIcon} style={{ background: moved ? "var(--color-background-secondary)" : isPositive ? "var(--income-wash)" : "var(--expense-wash)" }} aria-hidden>
         {cat?.icon ?? "💳"}
       </span>
       <span className={styles.txBody}>
@@ -283,8 +296,11 @@ function TransactionCard({ tx, categories, formatCurrency, onView, flash = "" }:
           <span className={styles.txCat}>{categoryLabel(cat?.name, t) || "—"}</span>
         </span>
       </span>
-      <span className={styles.txAmount} style={{ color: tx.transferId ? "var(--color-text-secondary)" : isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
-        {tx.transferId ? "" : isPositive ? "+" : "−"}
+      <span
+        className={styles.txAmount}
+        style={{ color: isDebtTransfer(tx) ? "var(--color-text-primary)" : tx.transferId ? "var(--color-text-secondary)" : isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}
+      >
+        {moved ? "" : isPositive ? "+" : "−"}
         {formatCurrency(tx.amount)}
       </span>
     </button>
@@ -657,14 +673,18 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
     for (const tx of pagedTransactions) {
       const day = startOfDay(firestoreToDate(tx.date)).getTime();
       const cat = resolveCategory(tx, categories);
+      // Borrowed money is neither earned nor spent here either: no sign, and
+      // «δανεικά» where the category would be — the same as in a day of the
+      // calendar, and as the page's own totals already count it.
+      const loanMove = isDebtTransfer(tx);
       const leaf: TreeLeaf = {
         id: tx.id,
         direction: isMoneyIn(tx) ? "in" : "out",
-        neutral: !!tx.transferId,
+        neutral: !!tx.transferId || loanMove,
         label: tx.description || categoryLabel(cat?.name, t) || "—",
         amount: Math.abs(tx.amount),
         icon: cat?.icon,
-        note: tx.transferId ? t("transactions.transfer.badge") : categoryLabel(cat?.name, t) || undefined,
+        note: tx.transferId ? t("transactions.transfer.badge") : loanMove ? t("transactions.loanMark") : categoryLabel(cat?.name, t) || undefined,
       };
       byDay.set(day, [...(byDay.get(day) ?? []), leaf]);
     }

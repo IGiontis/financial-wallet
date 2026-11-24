@@ -1,7 +1,12 @@
-/* A page's tabs — the ONE tab look on every page (the owner, 2026-11-12:
-   «κουτάκια παντού»). The boxes of the shared segmented control
-   (Segmented.module.css), in its own tokens: a resting tab is the neutral chip
-   with an edge you can see, the chosen one the brand, filled. No icons.
+/* A page's tabs — the ONE tab look on every page. Two grounds, one row:
+   - **In the page header's band** (where a page's tabs belong, owner
+     2026-11-24, «option Β»): they ARE the band's base — an underline row on
+     its bottom edge, the chosen one in the brand, bold, over a 2px brand line,
+     the others `--text-2`. See «In the page's band» at the end of this file.
+   - Anywhere else: the boxes they have been since 2026-11-12 («κουτάκια
+     παντού») — the shared segmented control's boxes (Segmented.module.css) in
+     its own tokens, a resting tab the neutral chip with an edge you can see,
+     the chosen one the brand, filled. No icons either way.
 
    One row, always. The boxes share the row equally while they fit, none ever
    narrower than its own label; when they don't fit — a 320px phone, a long
@@ -100,4 +105,81 @@
   padding: 2px 5px;
   font-size: 9.5px;
   line-height: 1;
+}
+
+/* ── In the page's band ─────────────────────────────────────────────────────
+   The page header is a band flush under the top bar, and its tabs are its
+   BASE: no boxes, no track, no gap above the line — each tab a word with room
+   around it, the chosen one bold, in the brand, sitting on a 2px brand line.
+   The words carry the row on their own here, so they are a step up the type
+   scale (`--fs-lead`) and heavier than the boxed ones: 600 at rest, 700 when
+   chosen (owner, 2026-11-24).
+
+   The band's own bottom border (`PageHeader.module.css`) is the 1px line the
+   row stands on: the strip gives the band's bottom padding back (that file's
+   `[data-band]` rule) and each tab's `-1px` carries its underline down onto
+   that line, so there is exactly ONE line — with tabs or without.
+
+   The row starts at the left and takes the width of its words, rather than
+   sharing the row equally: underlines as wide as the whole row read as a
+   border, not as a tab. Everything else — one row, never wrapping, scrolling
+   sideways and snapping when tight — is `.strip` above, unchanged. */
+
+.band {
+  grid-auto-columns: max-content;
+  justify-content: start;
+  gap: var(--space-4);
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  scroll-padding-inline: 0;
+}
+
+/* A phone gives the words the room the gap was taking, so the bigger lettering
+   costs nothing on 320px — the text itself is never shrunk. */
+@media (max-width: 575.98px) {
+  .band {
+    gap: var(--space-3);
+  }
+}
+
+.band .tab {
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  /* Down onto the band's own 1px edge, so the two lines are one. */
+  margin-bottom: -1px;
+  background: none;
+  box-shadow: none;
+  color: var(--text-2);
+  /* A step up the scale and a heavier weight than the boxes wear (owner,
+     2026-11-24: «πιο bold να ξεχωρίζουν ίσως και λίγο πιο μεγάλα»): without a
+     box around it a tab has only its lettering to stand on. */
+  font-size: var(--fs-lead);
+  font-weight: 600;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.band .tab:hover:not(.active) {
+  border-bottom-color: var(--border);
+  color: var(--text);
+}
+
+.band .tab.active {
+  border-bottom-color: var(--brand);
+  background: none;
+  box-shadow: none;
+  color: var(--brand-text);
+  /* Heavier again than its neighbours, so the one you are on is never in doubt. */
+  font-weight: 700;
+}
+
+/* The ring is drawn inside the word: the strip is a scroller, and an outset
+   ring on the row's own bottom edge would be cut by it. */
+.band .tab:focus-visible {
+  outline-offset: -2px;
 }

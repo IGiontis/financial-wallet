@@ -18,6 +18,8 @@ function files(dir: string, ext: RegExp): string[] {
 }
 
 const sources = files(SRC, /\.tsx$/).map((path) => ({ path: relative(SRC, path).replace(/\\/g, "/"), text: readFileSync(path, "utf8") }));
+/** Every stylesheet, comments stripped — a rule a test can see in the CSS. */
+const styles = files(SRC, /\.css$/).map((path) => ({ path: relative(SRC, path).replace(/\\/g, "/"), text: readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, "") }));
 
 /** Every `<Button …>` opening tag, with its line. */
 function buttons(text: string): { line: number; tag: string }[] {
@@ -43,8 +45,19 @@ describe("UI conventions", () => {
     expect(told).toEqual([]);
   });
 
-  // One tab look on every page (the owner, 2026-11-12): `PageTabs`. A tablist
-  // anywhere else is a second look in the making.
+  // The page header is a BAND, edge to edge and flush under the top bar
+  // (rule 8, owner 2026-11-24, «option Β»), and only the shared one may pull
+  // itself out to the content area's edges: a page doing that arithmetic on its
+  // own is the hand-rolled header coming back. What the band itself looks like
+  // is checked in `shared/components/pageHeader.convention.test.ts`.
+  it("only the shared header reaches the page's edges", () => {
+    const pulling = styles.filter(({ text }) => /--page-bleed/.test(text)).map(({ path }) => path);
+    expect(pulling.sort()).toEqual(["shared/css/PageHeader.module.css", "shared/css/PageShell.module.css"]);
+  });
+
+  // One tab look on every page (the owner, 2026-11-12, re-cut as the band's
+  // base 2026-11-24): `PageTabs`. A tablist anywhere else is a second look in
+  // the making, and so is a brand underline strip of a page's own.
   it("page tabs are built only by PageTabs: no other tablist", () => {
     const tabRole = /\brole(?:=\{?|:\s*)["'`]tab(?:list)?["'`]/;
     const builders = sources.filter(({ text }) => tabRole.test(text)).map(({ path }) => path);
@@ -67,6 +80,16 @@ describe("UI conventions", () => {
   it("only PageTabs wears the page tabs' styles", () => {
     const users = sources.filter(({ text }) => /PageTabs\.module\.css["']/.test(text)).map(({ path }) => path);
     expect(users).toEqual(["shared/components/PageTabs.tsx"]);
+  });
+
+  // The chosen tab's 2px brand underline belongs to `PageTabs` in the header's
+  // band. A page that draws its own is a second tab look (the one already on
+  // the books is `InvestmentsShared`'s history filter, COMPONENTS.md «Known
+  // drift» 16 — inline-styled, not CSS, and a filter, so it should be
+  // `Segmented`).
+  it("the band's brand underline is PageTabs' alone", () => {
+    const copies = styles.filter(({ text }) => /border-bottom(-color)?:\s*(2px solid )?var\(--brand\)/.test(text)).map(({ path }) => path);
+    expect(copies).toEqual(["shared/css/PageTabs.module.css"]);
   });
 
   // One dialog title, one size (rule 16, owner 2026-11-23: he spotted it on the

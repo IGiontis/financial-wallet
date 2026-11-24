@@ -1,7 +1,13 @@
 /* Money as a tree — see MoneyTree.tsx. A trunk down the middle, each day a
    node on it, what lands on the day as leaves on a short branch either side:
    money in always left, money out always right. On a phone the trunk moves
-   to the left edge and every leaf hangs right, with a ↙/↗ mark on each. */
+   to the left edge and every leaf hangs right, the sign and the colour of the
+   figure saying which way the money went.
+
+   A leaf reads down: the name on its own line, and under it the state on the
+   left and the figure on the right. Under 576px the state is its icon alone —
+   its word clipped, not removed (see «The phone: the state as an icon» at the
+   end). */
 
 /* Measured by its own width, not the screen's — see the @container at the end. */
 .frame {
@@ -136,38 +142,60 @@
 }
 
 .leafIcon {
+  flex-shrink: 0;
   font-size: var(--fs-body);
   line-height: 1;
 }
 
-.leafText {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
 .leafName {
+  /* Only a word with no room of its own is broken; everything else wraps
+     whole, and nothing is ever cut. `min-width: 0` is what lets it: a flex
+     item will not go under its longest word's width without it, and
+     «Ενοίκιο γκαρσονιέρας» ran off the right of a 320px leaf. */
+  min-width: 0;
   overflow-wrap: break-word;
   font-size: var(--fs-lead);
   font-weight: 600;
 }
 
-.leafNote {
+.leafNote,
+.leafState {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  min-width: 0;
   font-size: var(--fs-small);
   color: var(--text-2);
 }
 
-/* What is on the leaf: its mark, its name and note, its figure. */
+.leafState > svg {
+  flex-shrink: 0;
+}
+
+/* What is on the leaf: its mark and name on one line, its state and figure
+   on the next. */
 .leafBody {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
   width: 100%;
   padding: var(--space-2) var(--space-3);
+}
+
+.leafHead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+/* The state left, the figure right — the figure keeps the right edge even
+   where there is no state to put beside it. */
+.leafFoot {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 /* A leaf that opens what it stands for: the whole leaf is the button. */
@@ -190,9 +218,11 @@
   outline-offset: 1px;
 }
 
+/* The figure: the biggest thing on the leaf, hard against its right edge. */
 .leafAmount {
-  font-size: var(--fs-lead);
-  font-weight: 600;
+  margin-left: auto;
+  font-size: var(--fs-body);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -202,23 +232,6 @@
 }
 
 .leafOut .leafAmount {
-  color: var(--expense-text);
-}
-
-/* The ↙ in / ↗ out mark: only where the side cannot say it — see the
-   narrow container at the end. */
-.leafDir {
-  display: none;
-  align-items: center;
-  font-size: var(--fs-lead);
-  line-height: 1;
-}
-
-.leafIn .leafDir {
-  color: var(--income-text);
-}
-
-.leafOut .leafDir {
   color: var(--expense-text);
 }
 
@@ -232,7 +245,8 @@
   background: var(--expense-wash-strong-solid);
 }
 
-.late .leafNote {
+.late .leafNote,
+.late .leafState {
   color: var(--expense-text);
   font-weight: 600;
 }
@@ -244,7 +258,8 @@
   background: var(--pending-wash-solid);
 }
 
-.upcoming .leafNote {
+.upcoming .leafNote,
+.upcoming .leafState {
   color: var(--pending-text);
 }
 
@@ -257,6 +272,7 @@
 
 .done .leafName,
 .done .leafNote,
+.done .leafState,
 .done .leafAmount {
   color: var(--text-2);
 }
@@ -324,25 +340,24 @@
     right: auto;
     left: calc(-0.75rem - 1px);
   }
-
-  .leafBody {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-  }
-
-  .leafDir {
-    display: inline-flex;
-  }
 }
 
-/* The narrowest phones: the figure under the name. Beside it, the mark and the
-   figure took all but 14px of a 146px leaf and «ΔΕΗ» stood one letter a line. */
-@container (max-width: 17rem) {
-  .leafBody {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    row-gap: 0.125rem;
-  }
-
-  .leafAmount {
-    grid-column: 2;
+/* ── The phone: the state as an icon ─────────────────────────────────────── */
+/* Rule 14 of `.claude/rules/ui.md` is «an icon AND a word»; under 576px the
+   leaf keeps the icon alone (owner, 2026-11-24: «μόνο icons εννοώ στο κινητό,
+   στο pc ας φαίνεται κανονικά το text»), so «πρέπει να πληρωθεί» never takes
+   the room the name needs. The word and «σε 3 μέρες» are CLIPPED, not
+   removed — a screen reader still reads them, and each icon differs in shape
+   as well as colour, so none of them leans on colour alone. A screen's width,
+   not the tree's: it is about the phone, not about a narrow column on a desk. */
+@media (max-width: 575.98px) {
+  .stateWord,
+  .stateExtra {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { PageTabs, type PageTabLink } from "./PageTabs";
+import { PageHeader } from "./PageHeader";
 import { pageTabIds } from "../utils/pageTabIds";
 
 // The one tab strip every page uses: as a tablist (state tabs) and as the
@@ -122,5 +123,39 @@ describe("PageTabs — link tabs", () => {
     const tab = container.querySelector('[role="tab"]')!;
     const box = (el: Element) => [...el.classList].filter((c) => !/active/i.test(c)).sort();
     expect(box(link)).toEqual(box(tab));
+  });
+});
+
+// In the page header's band the tabs are the band's BASE — underlines on its
+// bottom edge, not boxes (owner, 2026-11-24, «option Β»). The page passes
+// nothing: the strip asks the band it is in (`useInPageBand`), and marks itself
+// `data-band` so the band's own stylesheet can put it on that edge.
+describe("PageTabs — the band's base", () => {
+  const inBand = (ui: React.ReactElement) =>
+    render(
+      <MemoryRouter>
+        <PageHeader title="Στόχοι">{ui}</PageHeader>
+      </MemoryRouter>,
+    );
+
+  it("state tabs in the header mark themselves as the band's row", () => {
+    inBand(<PageTabs base="t" label="Things" tabs={TABS} value="a" onChange={() => undefined} />);
+    const list = screen.getByRole("tablist", { name: "Things" });
+    expect(list).toHaveAttribute("data-band");
+    expect([...list.classList].some((c) => /band/i.test(c))).toBe(true);
+  });
+
+  it("link tabs in the header do the same — one look for both kinds", () => {
+    inBand(<PageTabs label="Bills" links={LINKS} />);
+    const nav = screen.getByRole("navigation", { name: "Bills" });
+    expect(nav).toHaveAttribute("data-band");
+    expect([...nav.classList].some((c) => /band/i.test(c))).toBe(true);
+  });
+
+  it("keeps the boxes anywhere else: no band marker outside the header", () => {
+    render(<StateHarness />);
+    const list = screen.getByRole("tablist", { name: "Things" });
+    expect(list).not.toHaveAttribute("data-band");
+    expect([...list.classList].some((c) => /band/i.test(c))).toBe(false);
   });
 });

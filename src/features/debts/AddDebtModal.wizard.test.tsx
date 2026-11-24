@@ -35,7 +35,11 @@ vi.mock("../accounts/AccountPicker", () => ({
 }));
 const ONE_PLACE = [{ id: "eb", name: "Eurobank", kind: "bank", main: true }];
 const places = vi.hoisted(() => ({ list: [] as unknown[] }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => places.list }));
+// `useMoneyAccounts` too — see `useSpendCheck` (rule 22); no reading, so no refusal.
+vi.mock("../accounts/useMoneyAccounts", () => ({
+  useAccountList: () => places.list,
+  useMoneyAccounts: () => ({ accounts: places.list, latest: undefined, transactions: [], checkIns: [], setCheckIns: vi.fn() }),
+}));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
 beforeAll(async () => {

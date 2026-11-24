@@ -251,6 +251,10 @@ export const PAIRS: Pair[] = [
     { fg: "border", bg: g, min: 3, why: "a component boundary, not lettering" },
     { fg: "focus", bg: g, min: 3, why: "a focus ring is a boundary: 3:1 is the WCAG floor for one" },
   ]),
+  // The chosen page tab's 2px underline on the header's band (rule 2, the band
+  // is `--surface`): a shape, not lettering — its word is `brand-text`, a pair
+  // above at 8:1.
+  { fg: "brand", bg: "surface", min: 3, why: "the chosen tab's underline is a boundary: 3:1 is the WCAG floor for one" },
 
   // The meanings: their lettering on the ground, on their own wash, on the
   // stronger wash of a chosen chip.

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FiChevronLeft } from "react-icons/fi";
 import { useTranslation } from "react-i18next";
 import { AddButton } from "./AddButton";
+import { PageBandContext } from "../hooks/useInPageBand";
 import styles from "../css/PageHeader.module.css";
 
 export interface PageHeaderProps {
@@ -13,7 +14,7 @@ export interface PageHeaderProps {
   /**
    * The «+»'s words (aria/title) — the same ones the page gives `usePageAdd`,
    * so the floating «+» says the same thing. Given together with `onAdd`, the
-   * square «+» shows at the card's left.
+   * square «+» shows at the band's left.
    */
   addLabel?: string;
   onAdd?: () => void;
@@ -27,26 +28,30 @@ export interface PageHeaderProps {
   backLabel?: string;
   /**
    * The page's ONE row of tabs or selectors — `PageTabs`, a `ViewSwitch`, a
-   * `DensitySwitch`, a `GoalPickMenu` — inside the same card, under the title.
+   * `DensitySwitch`, a `GoalPickMenu` — at the band's foot, under the title.
+   * `PageTabs` in here draws itself as the band's base (underlines on its
+   * bottom edge); the others keep their own look.
    */
   children?: ReactNode;
   className?: string;
 }
 
 /**
- * THE header of every page: one soft card (the cards' surface, edge and radius)
- * holding the «+», the title, its one line, the actions — and, inside the same
- * card, the page's one row of tabs or selectors.
+ * THE header of every page: one BAND on the page's surface, edge to edge and
+ * flush against the top bar, holding the «+», the title, its one line, the
+ * actions — and, at its foot, the page's one row of tabs or selectors.
  *
- * The owner picked it on 2026-11-19 from three mockups («option Α, a card»,
- * `docs/DECISIONS.md`): every page's top now reads the same, and a page's own
- * header markup is a bug. It replaces `AddHeader`, which was the «+» and the
- * title on the bare page ground, with each page leaving its own room under it.
+ * The owner picked the band on 2026-11-24 («option Β») over the soft card it
+ * was from 2026-11-19 («option Α»): «να πιάνει από άκρη σε άκρη, κολλημένο με
+ * το από πάνω». No radius, no shadow, no gap above it; the band's bottom edge
+ * is its base, and the page's tabs sit on that edge as underlines
+ * (`PageTabs`, through the band's context). Every page's top reads the same,
+ * and a page's own header markup is a bug.
  *
  * Phone-first: the «+» keeps its 44px square and never shrinks, the title
  * takes the rest of the row and wraps (never truncates), and the actions drop
  * to a line of their own before anything is squeezed. At 320px nothing spills
- * out of the card.
+ * out of the band.
  */
 export function PageHeader({ title, subtitle, addLabel, onAdd, addDisabled, actions, backTo, backLabel, children, className = "" }: PageHeaderProps) {
   const { t } = useTranslation();
@@ -71,7 +76,13 @@ export function PageHeader({ title, subtitle, addLabel, onAdd, addDisabled, acti
           </div>
         )}
       </div>
-      {children && <div className={styles.controls}>{children}</div>}
+      {children && (
+        <div className={styles.controls}>
+          {/* Everything in here is in the band: `PageTabs` asks (`useInPageBand`)
+              and draws itself as the band's base. */}
+          <PageBandContext.Provider value>{children}</PageBandContext.Provider>
+        </div>
+      )}
     </section>
   );
 }

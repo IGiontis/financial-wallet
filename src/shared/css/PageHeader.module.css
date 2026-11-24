@@ -1,22 +1,35 @@
-/* THE page header — one soft card on every page (owner, 2026-11-19, «option Α»:
-   docs/DECISIONS.md «Page header = option Α, a card»). See PageHeader.tsx.
+/* THE page header — one BAND on every page (owner, 2026-11-24, «option Β»:
+   «να πιάνει από άκρη σε άκρη, κολλημένο με το από πάνω»). See PageHeader.tsx.
 
-   The cards' own surface, edge, radius and shadow, so it reads as one of the
-   page's cards rather than as a band of its own; the page's one row of tabs or
-   selectors sits INSIDE it, under the title. */
+   It used to be a soft card inside the page (option Α, 2026-11-19): radius,
+   shadow, a margin all round it. It is now a band on the page's own surface —
+   no radius, no shadow, nothing above it — that runs the full width of the
+   content area (edge to edge on a phone, and from the sidebar to the right
+   edge on a desktop) and touches the top bar. The page's ONE row of
+   tabs/selectors stays inside it, at its foot.
+
+   The band's bottom border is its base: with tabs in it, that 1px line is the
+   line the underlines sit on (`PageTabs.module.css` «In the page's band»), so
+   there is exactly one line either way. */
 
 .header {
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
+  /* The band's own inner padding is the page's gutter, so the title in here
+     and the cards below it stand on the same left edge. */
+  --band-pad-x: var(--page-bleed-x, var(--space-3));
+  --band-pad-y: var(--space-3);
+  /* Out to the content area's edges, and up against the top bar: the shell's
+     padding and the layout container's, undone (`--page-bleed-*`,
+     PageShell.module.css). Nothing of the notch is re-added here — the top bar
+     itself grows by `env(safe-area-inset-top)` and paints it (Topbar.module.css). */
+  margin: calc(-1 * var(--page-bleed-top, 0px)) calc(-1 * var(--page-bleed-x, 0px)) var(--space-4);
+  padding: var(--band-pad-y) var(--band-pad-x);
   background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid var(--border-soft);
 }
 
 @media (min-width: 576px) {
   .header {
-    padding: var(--pad-card-y) var(--pad-card-x);
+    --band-pad-y: var(--pad-card-y);
   }
 }
 
@@ -44,17 +57,24 @@
   margin-left: auto;
 }
 
-/* The tabs / view switch / density inside the card. The room each of them
-   leaves under itself on a bare page — `PageTabs`' strip has a margin-bottom
-   of its own — is the card's bottom padding in here, so the last one gives it
-   back. The strip keeps its negative inline margin: that is what puts the
-   boxes' edges on the same line as the title above them. */
+/* The tabs / view switch / density inside the band. The room each of them
+   leaves under itself on a bare page is the band's bottom padding in here, so
+   the last one gives it back. */
 .controls {
   margin-top: var(--space-3);
 }
 
-.controls > :last-child {
+.controls > :last-child:not([data-band]) {
   margin-bottom: 0;
+}
+
+/* The page's tabs are the band's BASE: the strip eats the band's bottom padding
+   so its underlines land on the band's own 1px edge. `PageTabs` marks itself
+   `data-band` when it is drawn in here (it reads the band's context), and this
+   rule — later in this file than the one above, at the same weight — is what
+   puts it on the edge. */
+.controls > [data-band] {
+  margin-bottom: calc(-1 * var(--band-pad-y));
 }
 
 /* The way back on a record page sits with the actions; its words never wrap

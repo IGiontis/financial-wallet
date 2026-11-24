@@ -24,7 +24,13 @@ export function NamesPage({ view = "payees" }: { view?: NamesView } = {}) {
 
   return (
     <PageShell>
-      <PageHeader title={t("names.title")} subtitle={t("names.subtitle")} />
+      {/* Each page is titled by what it lists (owner, 2026-11-24): since they
+          became two pages, «Δικαιούχοι & κατηγορίες» over a list of only one
+          of them says the wrong thing. */}
+      <PageHeader
+        title={t(view === "categories" ? "names.pageCategories" : "names.pagePayees")}
+        subtitle={t(view === "categories" ? "names.subtitleCategories" : "names.subtitlePayees")}
+      />
       {view === "categories" ? <CategoryManager /> : <PayeesTab />}
     </PageShell>
   );

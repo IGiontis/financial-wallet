@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addMonths, differenceInCalendarDays, endOfMonth, startOfDay, startOfMonth } from "date-fns";
-import { FiAlertTriangle, FiCalendar, FiCheck, FiChevronLeft, FiChevronRight, FiClock, FiFlag } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { useLoadMore } from "../../../shared/hooks/useLoadMore";
-import { ViewSwitch } from "../../../shared/components/ViewSwitch";
-import { MoneyTree, type TreeLeaf } from "../../../shared/components/MoneyTree";
+import { MoneyTree, type TreeLeaf, type TreeLeafState } from "../../../shared/components/MoneyTree";
 import { CALENDAR_KIND_ICON, calendarItemsBetween, type CalendarItem, type CalendarKind, type CalendarSources } from "../calendarDays";
 import styles from "../css/MoneyTimeline.module.css";
 import { dateFormat } from "../../../shared/utils/dates";
@@ -12,32 +11,31 @@ import { dateFormat } from "../../../shared/utils/dates";
 /** What a timeline shows: money in, money out, or both — in to the left of the trunk, out to the right. */
 export type TimelineSide = "in" | "out" | "all";
 
-/** How long a stretch it shows at a time: a month to begin with, up to a year. */
-type Span = "month" | "quarter" | "half" | "year";
-
-/** How many months a span covers. */
-const SPAN_MONTHS: Record<Span, number> = { month: 1, quarter: 3, half: 6, year: 12 };
-
-/** Days drawn at a time: a year of a busy calendar is a few hundred, drawn as the reader gets to them. */
+/** Days drawn at a time: a busy month is drawn as the reader gets to it. */
 const DAYS_PAGE = 21;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** The days a stretch covers, from the month it is anchored on. */
-function stretch(span: Span, anchor: Date): { from: Date; to: Date } {
+/**
+ * The days one month covers. One month, always (owner, 2026-11-24): the
+ * timeline used to offer three, six or twelve months as well, which only made
+ * a long scroll of days nobody reads to the end of — the month, stepped with
+ * ‹ ›, is what the page is for.
+ */
+function stretch(anchor: Date): { from: Date; to: Date } {
   const from = startOfMonth(anchor);
-  return { from, to: startOfDay(endOfMonth(addMonths(from, SPAN_MONTHS[span] - 1))) };
+  return { from, to: startOfDay(endOfMonth(from)) };
 }
 
 /**
  * What is coming and what came, as a tree (`MoneyTree`): money in to the left
  * of the trunk and out to the right, or one of them with the days taking turns.
  *
- * A month at a time to begin with — this one — or three, six or twelve, stepped
- * with ‹ ›. A long stretch is drawn a few weeks at a
- * time as it is scrolled (`useLoadMore`), so a year costs no more to open
- * than a month. The items are the calendar's own (`calendarItemsBetween`), so
- * a leaf here and the same day on «Ημερολόγιο» say the same.
+ * One month at a time — this one to begin with — stepped with ‹ ›. It is drawn
+ * a few weeks at a time as it is scrolled (`useLoadMore`), so a busy month
+ * costs no more to open than a quiet one. The items are the calendar's own
+ * (`calendarItemsBetween`), so a leaf here and the same day on «Ημερολόγιο»
+ * say the same.
  */
 export function MoneyTimeline({
   side,
@@ -60,15 +58,14 @@ export function MoneyTimeline({
 }) {
   const { t } = useTranslation();
   const today = useMemo(() => startOfDay(sources.now), [sources.now]);
-  const [span, setSpan] = useState<Span>("month");
   const [anchor, setAnchor] = useState(() => startOfMonth(today));
   // No further than the sources reach: past their last month the incomes,
   // loans and goals are not there to show.
   const end = useMemo(() => startOfDay(endOfMonth(last)), [last]);
   const { from, to } = useMemo(() => {
-    const whole = stretch(span, anchor);
+    const whole = stretch(anchor);
     return { from: whole.from, to: whole.to > end ? end : whole.to };
-  }, [span, anchor, end]);
+  }, [anchor, end]);
 
   const items = useMemo(
     () => calendarItemsBetween(from, to, sources).filter((item) => (side === "all" || item.direction === side) && (!kinds || kinds.includes(item.kind))),
@@ -92,77 +89,51 @@ export function MoneyTimeline({
   const totalOut = round2(items.filter((i) => i.direction === "out").reduce((sum, i) => sum + i.amount, 0));
 
   const monthFmt = useMemo(() => dateFormat("monthYear", locale), [locale]);
-  const monthShortFmt = useMemo(() => dateFormat("monthYearShort", locale), [locale]);
-  const title = span === "month" ? monthFmt.format(from) : `${monthShortFmt.format(from)} – ${monthShortFmt.format(to)}`;
+  const title = monthFmt.format(from);
 
-  const moved = (by: number) => addMonths(startOfMonth(anchor), by * SPAN_MONTHS[span]);
+  const moved = (by: number) => addMonths(startOfMonth(anchor), by);
   const step = (by: number) => setAnchor(moved(by));
-  // Back as far as a whole stretch fits; forward while the next one starts
-  // inside the sources — its tail is cut at their last month.
-  const canBack = stretch(span, moved(-1)).from >= first;
-  const canForward = stretch(span, moved(1)).from <= end;
+  // Back as far as the sources reach; forward while the next month starts
+  // inside them — its tail is cut at their last month.
+  const canBack = stretch(moved(-1)).from >= first;
+  const canForward = stretch(moved(1)).from <= end;
   const holdsToday = today >= from && today <= to;
   const backToToday = () => setAnchor(startOfMonth(today));
 
   // Drawn a few weeks at a time: the next lot on its way as the end comes into view.
-  const { limit, hasMore, more, sentinel } = useLoadMore(days.length, DAYS_PAGE, `${span}|${from.getTime()}|${side}|${kinds?.join(",") ?? ""}`);
+  const { limit, hasMore, more, sentinel } = useLoadMore(days.length, DAYS_PAGE, `${from.getTime()}|${side}|${kinds?.join(",") ?? ""}`);
   const shown = days.slice(0, limit);
 
-  // A calendar item as a leaf: its kind's mark, whether it happened, came late or is still to come.
   // A calendar item as a leaf, at one of three weights. What wants doing is
   // what is late — and a payment due today, which has to go today all the same.
+  //
+  // The leaf is told the state as a kind and a word, not as drawn markup: the
+  // tree owns the marks, and on a phone it shows the mark alone (see
+  // `MoneyTree`). «!» for the day that has come, «⚠» for the day that has
+  // gone — the shapes differ, as rule 14 asks.
   const toLeaf = (item: CalendarItem): TreeLeaf => {
     const daysAway = differenceInCalendarDays(item.date, today);
     const late = item.state === "late" || (item.state === "todo" && item.direction === "out" && daysAway <= 0);
     const upcoming = item.state === "todo" && !late;
-    const note = late ? (
-      <>
-        <FiAlertTriangle size={11} aria-hidden />
-        {/* Money put aside for a goal is not a bill: it goes in, today. */}
-        {t(item.kind === "goal" ? "timeline.state_goalToday" : item.direction === "out" ? "timeline.state_toPay" : "timeline.state_late")}
-      </>
-    ) : upcoming && item.first ? (
-      // Not running yet: this is where it starts, said plainly.
-      <>
-        <FiFlag size={11} aria-hidden />
-        {t("timeline.state_first")}
-        {daysAway > 0 && ` · ${t("timeline.inDays", { count: daysAway })}`}
-      </>
-    ) : upcoming ? (
-      <>
-        <FiClock size={11} aria-hidden />
-        {t("timeline.state_coming")}
-        {daysAway > 0 && ` · ${t("timeline.inDays", { count: daysAway })}`}
-      </>
-    ) : (
-      <>
-        <FiCheck size={11} aria-hidden />
-        {t(item.direction === "out" ? "timeline.state_paid" : "timeline.state_came")}
-      </>
-    );
-    return { id: item.id, direction: item.direction, label: item.label, amount: item.amount, icon: CALENDAR_KIND_ICON[item.kind], approximate: item.approximate, done: item.state === "done", late, upcoming, note };
+    const inDays = daysAway > 0 ? t("timeline.inDays", { count: daysAway }) : undefined;
+    const state: TreeLeafState = late
+      ? {
+          kind: item.state === "late" || daysAway < 0 ? "late" : "due",
+          // Money put aside for a goal is not a bill: it goes in, today.
+          word: t(item.kind === "goal" ? "timeline.state_goalToday" : item.direction === "out" ? "timeline.state_toPay" : "timeline.state_late"),
+        }
+      : upcoming && item.first
+        ? // Not running yet: this is where it starts, said plainly.
+          { kind: "first", word: t("timeline.state_first"), extra: inDays }
+        : upcoming
+          ? { kind: "coming", word: t("timeline.state_coming"), extra: inDays }
+          : { kind: "done", word: t(item.direction === "out" ? "timeline.state_paid" : "timeline.state_came") };
+    return { id: item.id, direction: item.direction, label: item.label, amount: item.amount, icon: CALENDAR_KIND_ICON[item.kind], approximate: item.approximate, done: item.state === "done", late, upcoming, state };
   };
 
   return (
     <section className={`card p-3 p-lg-4 ${styles.card}`} aria-label={heading}>
-      <div className="stat-head d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>{heading}</span>
-        <ViewSwitch
-          label={t("timeline.spanLabel")}
-          value={span}
-          onChange={(next) => {
-            setSpan(next);
-            setAnchor(startOfMonth(today));
-          }}
-          // On the narrowest phones each by its length alone — «1μ», «3μ», «12μ».
-          options={[
-            { id: "month", label: t("timeline.month"), icon: FiCalendar, short: t("timeline.shortMonths", { count: 1 }) },
-            { id: "quarter", label: t("timeline.months", { count: 3 }), short: t("timeline.shortMonths", { count: 3 }) },
-            { id: "half", label: t("timeline.months", { count: 6 }), short: t("timeline.shortMonths", { count: 6 }) },
-            { id: "year", label: t("timeline.year"), short: t("timeline.shortMonths", { count: 12 }) },
-          ]}
-        />
-      </div>
+      <div className="stat-head">{heading}</div>
 
       <div className={styles.nav}>
         <button type="button" className={styles.step} onClick={() => step(-1)} disabled={!canBack} aria-label={t("timeline.prev")}>

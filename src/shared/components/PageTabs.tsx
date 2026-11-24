@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import styles from "../css/PageTabs.module.css";
 import { pageTabIds } from "../utils/pageTabIds";
+import { useInPageBand } from "../hooks/useInPageBand";
 
 /** A tab that shows a panel on this page (`?tab=`). */
 export interface PageTab<T extends string> {
@@ -47,9 +48,11 @@ interface LinkTabs extends Common {
 }
 
 /**
- * The tabs straight under a page's header — the ONE tab look on every page:
- * boxes, the chosen one in the brand, one row that scrolls sideways when tight
- * (`PageTabs.module.css`).
+ * The page's tabs — the ONE tab look on every page: inside the header's band
+ * (where a page's tabs belong) they ARE the band's base, an underline row on
+ * its bottom edge with the chosen one in the brand, bold, over a 2px brand
+ * line; anywhere else they keep the boxes they always were. One row either
+ * way, scrolling sideways when tight, never wrapping (`PageTabs.module.css`).
  *
  * Two kinds, same look and markup:
  * - **State tabs** (`tabs`, `value`, `onChange`, `base`): a real tablist. The
@@ -69,6 +72,12 @@ export function PageTabs<T extends string>(props: StateTabs<T> | LinkTabs) {
   const keepStrip = (node: HTMLElement | null) => {
     strip.current = node;
   };
+  // In the page header's band the strip is the band's base: underlines on its
+  // bottom edge. `data-band` is what the band's own stylesheet looks for to
+  // give it the band's bottom padding back (`PageHeader.module.css`).
+  const inBand = useInPageBand();
+  const stripClass = `${styles.strip} ${inBand ? styles.band : ""}`;
+  const band = inBand ? "" : undefined;
 
   // The chosen box in view: a phone opened on the last tab (from the address,
   // or the one remembered) shows it, not the first ones only.
@@ -82,7 +91,7 @@ export function PageTabs<T extends string>(props: StateTabs<T> | LinkTabs) {
 
   if (props.links) {
     return (
-      <nav ref={keepStrip} className={styles.strip} aria-label={props.label} data-tour={props["data-tour"]}>
+      <nav ref={keepStrip} className={stripClass} data-band={band} aria-label={props.label} data-tour={props["data-tour"]}>
         {props.links.map((link) => (
           <NavLink
             key={link.to}
@@ -121,7 +130,7 @@ export function PageTabs<T extends string>(props: StateTabs<T> | LinkTabs) {
   };
 
   return (
-    <div ref={keepStrip} className={styles.strip} role="tablist" aria-label={label} data-tour={props["data-tour"]}>
+    <div ref={keepStrip} className={stripClass} data-band={band} role="tablist" aria-label={label} data-tour={props["data-tour"]}>
       {tabs.map((tab, index) => {
         const on = tab.id === value;
         const ids = pageTabIds(base, tab.id);

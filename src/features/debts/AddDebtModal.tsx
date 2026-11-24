@@ -17,6 +17,8 @@ import segmented from "../../shared/css/Segmented.module.css";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
+import { SpendNote } from "../accounts/SpendNote";
+import { useSpendCheck } from "../accounts/useSpendCheck";
 import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
 import { DialogFooter } from "../../shared/components/DialogFooter";
 import { toast } from "react-toastify";
@@ -200,6 +202,8 @@ export default function AddDebtModal({
   const instalment = isLoanEntry && Number.isFinite(value) ? monthlyInstalment(value, allInRate, termValue, freeValue) : 0;
   const personOk = person.trim() !== "";
   const amountOk = Number.isFinite(value) && value > 0;
+  // Money I LEND leaves my card; money I borrow arrives on it (rule 22).
+  const spend = useSpendCheck(direction === "owed_to_me" ? (typeof writtenAccount === "string" ? writtenAccount : undefined) : undefined, value);
   const when = parseISODay(date);
   // The day the debt began happened: today or earlier, whether or not money
   // moved (the safer reading of the owner's rule, 2026-11-14). An edit may keep
@@ -215,6 +219,7 @@ export default function AddDebtModal({
         setTouched(true);
         return setStep("who");
       }
+      if (before === "money" && spend.blocked) return setStep("money");
       if (before === "money" && (moneyMissing || !amountOk)) {
         if (moneyMissing) setMoneyTried(true);
         if (!amountOk) setTouched(true);
@@ -258,7 +263,7 @@ export default function AddDebtModal({
   const saveNow = async () => {
     if (unchanged) return;
     setTouched(true);
-    if (!personOk || !amountOk || !when || dateError) return;
+    if (!personOk || !amountOk || !when || dateError || spend.blocked) return;
     if (moneyMissing) {
       setMoneyTried(true);
       setStep("money");
@@ -679,6 +684,7 @@ export default function AddDebtModal({
                   <Input id="debt-amount" aria-required type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
                   <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
                 </InputGroup>
+                <SpendNote check={spend} />
               </FormGroup>
 
             </>

@@ -1,6 +1,16 @@
 /* One box for every screen. See PageShell.tsx for why this exists. */
 
 .shell {
+  /* How far this shell holds the page off the content area's own edges — its
+     own gutter (Bootstrap's fluid container, half of `--bs-gutter-x`) plus the
+     layout container's identical one, and the `py-2` above it (MainLayout.tsx).
+     Only the page header's band reads them: it pulls itself out by exactly
+     these, so it runs edge to edge and sits flush under the top bar
+     (`PageHeader.module.css`, owner 2026-11-24, «option Β»). Written here
+     because this is the shell that holds the paddings — a page never does the
+     arithmetic itself. */
+  --page-bleed-x: calc(var(--bs-gutter-x, 1.5rem) * 0.5 + 0.75rem);
+  --page-bleed-top: calc(var(--space-2) + 0.5rem);
   /* Matches what the overview, transactions and analytics screens already had,
      so the pages that were right stay exactly as they were and the rest come
      to meet them. */
@@ -8,6 +18,16 @@
   padding-bottom: var(--space-2);
   /* No ceiling: the widest a chart can be is the widest the screen allows. */
   max-width: none;
+}
+
+/* A page that IS a form («Νέα συναλλαγή», «Νέο κλείσιμο»): the shell itself is
+   the surface card, with its own rounded corners (`.form-page`,
+   MainLayout.css). A band bleeding past them would paint square corners of
+   surface colour outside the card, so here the header keeps to the card: the
+   title, its line and the hairline under them, inside the form's own gutter. */
+.shell:global(.form-page) {
+  --page-bleed-x: 0px;
+  --page-bleed-top: 0px;
 }
 
 /* For a form or a column of reading — a text field two thousand pixels wide is

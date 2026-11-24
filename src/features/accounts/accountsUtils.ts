@@ -340,6 +340,53 @@ export function goalHeldByAccount(accounts: MoneyAccount[], transactions: Transa
   return result;
 }
 
+/**
+ * What a form should do about money leaving an account (owner, 2026-11-24,
+ * after a 3,00 € cash balance was taken to −0,50 € with no check at all):
+ *
+ *   "ok"      nothing to say — it fits, or the balance is not known
+ *   "refuse"  the account would go below zero, and the form must not save it.
+ *
+ * NO account may go below zero (owner, 2026-11-24, sharpened the same day:
+ * «ούτε οι κάρτες να μπορούν να πάνε κάτω από το 0»). A card you really can
+ * overdraw — an overdraft or a credit card — will say so on itself, and that
+ * flag is a later piece of work; until it exists, every account is held at
+ * zero. `on` says which kind it is, so the message can speak plainly: cash
+ * that is not in the pocket, against a card whose balance may simply need an
+ * update.
+ *
+ * `short` is how much is missing, so the message can say it.
+ *
+ * The balance used is what the account SHOULD hold now (`expectedByAccount`) —
+ * the figure its card already shows — not its free money: cash set aside for a
+ * goal is still cash in the pocket. An account the latest reading never read
+ * (added since, or no reading at all) is unknown and never refused on a guess.
+ */
+export type SpendVerdict = { kind: "ok" } | { kind: "refuse"; on: "cash" | "bank"; holds: number; short: number };
+
+export function spendCheck(
+  accounts: MoneyAccount[],
+  latest: CheckInReading | undefined,
+  transactions: Transaction[],
+  accountId: string | undefined,
+  amount: number,
+  /**
+   * What this form has ALREADY taken from that account and is about to
+   * replace — the record being edited. The balance counts it already, so it
+   * is given back before the new amount is weighed: editing a 100 € expense
+   * to 101 € asks the card for one euro more, not for another 101.
+   */
+  already = 0,
+): SpendVerdict {
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account || !latest || !Number.isFinite(amount) || amount <= 0) return { kind: "ok" };
+  if (!Number.isFinite(latest.checkIn.amounts[account.id])) return { kind: "ok" };
+  const holds = round2((expectedByAccount(accounts, latest, transactions)[account.id] ?? 0) + (Number.isFinite(already) ? already : 0));
+  // Half a cent of slack, as everywhere else money is compared.
+  if (amount <= holds + 0.005) return { kind: "ok" };
+  return { kind: "refuse", on: account.kind === "cash" ? "cash" : "bank", holds, short: round2(amount - holds) };
+}
+
 export interface FreeMoney {
   /** What the account should hold now (`expectedByAccount`). */
   expected: number;
