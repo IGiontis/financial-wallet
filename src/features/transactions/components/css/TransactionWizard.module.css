@@ -81,8 +81,7 @@
   color: var(--on-brand);
 }
 
-/* Never cut short: a long word wraps (breaking inside it only when nothing
-   else fits). On a phone a rail of 4+ steps (`.stepsMany`) hides them for `.stepsNow`. */
+/* A long word wraps (breaking inside it only when nothing else fits). */
 .stepLabel {
   font-size: var(--fs-caption);
   color: var(--color-text-secondary);
@@ -92,28 +91,34 @@
   line-height: 1.25;
 }
 
-/* «Βήμα 2/5 · Κατηγορία» — only on a phone, only under a rail of 4+ steps. */
-.stepsNow {
-  display: none;
-  margin: calc(var(--space-2) * -1) 0 var(--space-3);
-  text-align: center;
-  font-size: var(--fs-small);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
+/* A phone, with a rail of 4+ steps (owner, 2026-11-24): every step keeps its
+   word, so the reader sees the whole path from the first screen — it used to
+   give way to one «Βήμα 2/5 · Κατηγορία» line, which says where you are and
+   nothing about what is coming. Five steps across 320px leave about 50px each,
+   so the dots and the rail shrink to make room, and a word that still does not
+   fit is cut with «…» rather than broken across two lines (the button's own
+   name carries it in full for a screen reader). */
 @media (max-width: 575.98px) {
-  .stepsMany .stepLabel {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  .stepsMany {
+    gap: 0.15rem;
   }
 
-  .stepsNow {
-    display: block;
+  .stepsMany .stepDot {
+    width: 22px;
+    height: 22px;
+    font-size: var(--fs-caption);
+  }
+
+  .stepsMany .stepBar {
+    width: 5px;
+    margin-top: 11px;
+  }
+
+  .stepsMany .stepLabel {
+    overflow: hidden;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 

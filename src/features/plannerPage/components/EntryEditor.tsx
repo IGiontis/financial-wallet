@@ -105,11 +105,21 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
   const [chosenMode, setChosenMode] = useState<EntryMode | null>(givenMode ?? null);
   const mode: EntryMode = chosenMode ?? "line";
   const [step, setStep] = useState<Step>(steps[0]);
+  /**
+   * Whether the kind is answered RIGHT NOW. Back on the kind step the question
+   * is being asked again, so it is unanswered again (owner, 2026-11-24): the
+   * header loses its colour, the title goes back to «Νέο ποσό» and neither tile
+   * is marked, until one is tapped. `chosenMode` itself is kept, so tapping the
+   * same tile again does not throw away the cadence or the dates already given.
+   */
+  const [kindSaid, setKindSaid] = useState(!!givenMode);
   const { tried: triedOn, mark: markTried } = useStepTried<Step>();
   const tried = triedOn(step);
   const [cadence, setCadence] = useState<Cadence>(() => (draft.id ? cadenceOf(mode, draft) : mode === "line" ? "monthly" : "once"));
   /** The first step's answer: what is typed so far stays, the cadence starts over for that kind. */
   const chooseMode = (next: EntryMode) => {
+    // Said again, even when it is the same answer as before.
+    setKindSaid(true);
     if (next === chosenMode) return;
     setChosenMode(next);
     setCadence(next === "line" ? "monthly" : "once");
@@ -146,12 +156,19 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
   const today = useMemo(() => now ?? new Date(), [now]);
 
   const index = steps.indexOf(step);
+  /** Landing on the kind step asks the question again — see `kindSaid`. */
+  const showStep = (next: Step) => {
+    if (next === "kind") setKindSaid(false);
+    setStep(next);
+  };
   const goTo = (target: Step) => {
     const to = steps.indexOf(target);
     // Forward only as far as what is filled in allows; back is always free.
-    if (askKind && to > 0 && !chosenMode) {
+    // The kind counts as given only while it is marked (`kindSaid`): after a
+    // step back it must be tapped again, even if it is the same answer.
+    if (askKind && to > 0 && !kindSaid) {
       markTried("kind");
-      setStep("kind");
+      showStep("kind");
       return;
     }
     if (to > steps.indexOf("1") && !whenOk) {
@@ -164,7 +181,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
       setStep("2");
       return;
     }
-    setStep(target);
+    showStep(target);
   };
 
   // «No change, no Save»: what would be stored, against the figure as it was
@@ -273,12 +290,12 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       {/* Which way the money goes, on the HEADER (rule 15a): «μπαίνουν» is a
           one-off coming in (green), a line is money going out (red). It turns
-          the moment the tile is pressed — `chosenMode` is set in `chooseMode` —
-          and is toned from the start when the caller named the kind or an
-          existing figure is being edited. Nothing is toned while the question
-          is unanswered. */}
-      <ModalHeader className={moneyToneHead(chosenMode === "oneoff" ? "income" : chosenMode === "line" ? "expense" : undefined)} toggle={onClose}>
-        {t(edit ? "planner.editEntry" : !chosenMode ? "planner.addAmount" : dated ? "planner.addOneOff" : "planner.addEntry")}
+          the moment the tile is pressed — `kindSaid` — and is toned from the
+          start when the caller named the kind or an existing figure is being
+          edited. Nothing is toned while the question is unanswered, and going
+          BACK to the question unanswers it (owner, 2026-11-24). */}
+      <ModalHeader className={moneyToneHead(!kindSaid ? undefined : chosenMode === "oneoff" ? "income" : chosenMode === "line" ? "expense" : undefined)} toggle={onClose}>
+        {t(edit ? "planner.editEntry" : !kindSaid || !chosenMode ? "planner.addAmount" : dated ? "planner.addOneOff" : "planner.addEntry")}
       </ModalHeader>
 
       <form
@@ -305,7 +322,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                 required
                 question={t("planner.kind_question")}
                 hideQuestion
-                value={chosenMode === null ? undefined : chosenMode === "oneoff"}
+                value={!kindSaid || chosenMode === null ? undefined : chosenMode === "oneoff"}
                 onChange={(isIn) => chooseMode(isIn ? "oneoff" : "line")}
                 yesLabel={t("planner.kind_in")}
                 yesHint={t("planner.kind_inHint")}
@@ -313,7 +330,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                 noHint={t("planner.kind_outHint")}
                 className="mb-0"
               />
-              {tried && !chosenMode && <div className="invalid-feedback d-block">{t("planner.kind_needed")}</div>}
+              {tried && !kindSaid && <div className="invalid-feedback d-block">{t("planner.kind_needed")}</div>}
             </>
           )}
 
@@ -501,7 +518,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                 {t("common.cancel")}
               </Button>
             ) : (
-              <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])}>
+              <Button type="button" color="secondary" outline onClick={() => showStep(steps[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
             )

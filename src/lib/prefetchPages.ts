@@ -101,8 +101,11 @@ export function startPagePrefetch(): void {
 export function chunkForPath(pathname: string): PageChunk | null {
   const [first = "", second = ""] = pathname.replace(/^\/+/, "").split("/");
   if (first === "") return "overview";
-  if (first === "transactions") return second === "new" ? "newTransaction" : second === "ledger" ? "ledger" : second === "names" ? "names" : "transactions";
-  // The other pages are named after their address (/bills, /goals …).
+  if (first === "transactions") return second === "new" ? "newTransaction" : second === "ledger" ? "ledger" : "transactions";
+  // «Ημερολόγιο συναλλαγών» sits under «Ημερολόγιο» but is the Transactions
+  // page in its calendar view, so it is that page's chunk.
+  if (first === "calendar") return second === "transactions" ? "transactions" : "calendar";
+  // The other pages are named after their address (/bills, /names, /goals …).
   return (APP_PAGES as readonly string[]).includes(first) ? (first as PageChunk) : null;
 }
 

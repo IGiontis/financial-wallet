@@ -46,7 +46,7 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   header. Two modes, same markup:
   - state tabs — `base`, `label`, `tabs: {id,label}[]`, `value`, `onChange`: a real tablist (arrows, Home/End,
     roving tabIndex, `data-view={id}` on each). Label the panel with `src/shared/utils/pageTabIds.ts`
-    (`pageTabIds(base, tab)` → `{tab, panel}`). Keep the tab in `?tab=`. Reference: `BusinessPage`, `NamesPage`,
+    (`pageTabIds(base, tab)` → `{tab, panel}`). Keep the tab in `?tab=`. Reference: `BusinessPage`,
     `GoalsWorkbench`, `OverviewPage`; `SettingsPage` (each tab its own route, `onChange` navigates).
   - link tabs — `label`, `links: {to,label,badge?,badgeTone?,badgeLabel?}[]`: child routes as tabs (`NavLink end`),
     a count on a tab's corner. **No page uses them since 2026-11-17**: a section's sub-pages are reached from the
@@ -66,10 +66,13 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   Reference: `features/debts/DebtPersonPage.tsx`, `features/bills/BillsPage.tsx` (`useDensity("bills")`, beside the
   view switch: views left, density right from 992px, stacked on a phone; off «Λίστα» it keeps its room hidden —
   `visibility: hidden` + `inert` — so nothing shifts). Not page tabs.
-- `src/features/bills/BillsPage.tsx` `BillStrip` / `BillStripCard` + `src/features/bills/billStrip.ts` — the bills list:
-  one card per bill (head = name + figure; inside, a line per date led by a pocket-calendar day block, red when
-  late — every unpaid period on its own line — and a status icon ✓/!/⚠ with its label at its right; paid cards
-  on `--paid-wash`), cards two side by side where each gets 22rem, more with the density.
+- `src/features/bills/BillsPage.tsx` `BillStrip` / `BillStripCard` / `BillFootDay` + `src/features/bills/billStrip.ts` —
+  the bills list: one card per bill (head = name + figure, the same at every density; inside, a line per date led
+  by a pocket-calendar day block, red when late — every unpaid period on its own line — and a status icon
+  ✓/!/⚠ with its label at its right; paid cards on `--paid-wash`), cards two side by side where each gets 22rem,
+  more with the density. «Κανονικό» ends in a foot of two `BillFootDay` boxes — «Προηγούμενος» (the last
+  payment's day, the paid green) and «Επόμενος» (the next due day, dashed and empty), each the same square
+  date block with its figure under the word, «—» and the word when there is no such day.
   Feature-local: for another date-led list, lift it into `shared/` first rather than copy it.
 - `src/features/settings/settingsTabs.ts` — Settings' tab ids/paths (`/settings/<id>`), drawn by `PageTabs`
   in `SettingsPage`.
@@ -100,9 +103,11 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `installModalMotion()` (installed once at startup). Use `MODAL_MS` for anything timed to a dialog closing.
 - `src/features/transactions/components/WizardSteps.tsx` — the numbered step rail: `steps`, `current`,
   `onGo`, `label?`, `open?`, `large?`; also exports `TypeBadge`. Every add/record/edit wizard.
-  Reference: `AddTransactionModal`, `AddDebtModal`, `ClosingWizard`. Labels never end in «…»: they wrap;
-  under 576px a rail of 4+ steps hides them (still each button's name) for one line under the dots,
-  «Βήμα 2/5 · Κατηγορία» (`transactions.wizard.stepNow`, 2026-11-17).
+  Reference: `AddTransactionModal`, `AddDebtModal`, `ClosingWizard`. **Every step shows its word at
+  every width** (owner, 2026-11-24, rule 17): under 576px a rail of 4+ steps shrinks its dots and
+  rail to make room (`.stepsMany`), and only a word that still does not fit is cut with «…» — the
+  button's own name and its `title` keep it whole. It used to hide the words for one «Βήμα 2/5 ·
+  Κατηγορία» line; that line and its key are gone.
 - `src/shared/css/Wizard.module.css` — the review step: `.wizCard` / `.wizRow` (a row that jumps back to its
   step) / `.wizLabel` / `.wizValue` / `.wizNote` / `.wizStatic` / **`.wizSub`** (the short line UNDER a figure
   that stands on its own, rule 15c — the rows already carry their label beside the figure; reference:

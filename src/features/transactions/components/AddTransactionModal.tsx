@@ -326,6 +326,18 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     setStep(afterCategory);
   };
 
+  /**
+   * Going back to step 1 asks the question again, so it is unanswered again
+   * (owner, 2026-11-24): the band loses its colour and no tile is marked until
+   * one is tapped. The VALUE is kept, so tapping the same kind again changes
+   * nothing and loses no category — only the answer's "said out loud" mark is
+   * cleared. Every step change goes through here for that reason.
+   */
+  const goToStep = (next: Step) => {
+    if (next === "type") setTypeChosen(false);
+    setStep(next);
+  };
+
   const handleClose = () => {
     formik.resetForm();
     resetTried();
@@ -335,7 +347,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     onClose();
   };
 
-  const goBack = () => setStep(steps[Math.max(0, steps.indexOf(step) - 1)]);
+  const goBack = () => goToStep(steps[Math.max(0, steps.indexOf(step) - 1)]);
 
   /** Past the card step only with a card or cash chosen. */
   const leaveAccount = () => {
@@ -390,7 +402,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             </div>
           </div>
         )}
-        {!saved && <WizardSteps steps={steps} current={step} onGo={setStep} />}
+        {!saved && <WizardSteps steps={steps} current={step} onGo={goToStep} />}
 
         {/* ── 1. Money in or money out ── */}
         {!saved && step === "type" && (

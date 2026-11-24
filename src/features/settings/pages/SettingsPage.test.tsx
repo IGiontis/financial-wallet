@@ -109,7 +109,7 @@ describe("settings tabs", () => {
     // The «Αρχικό υπόλοιπο» card is gone: the bank and cash readings replaced it.
     renderAt("/settings/data");
     // The categories live on their own page now: here, only the link there.
-    expect(await within(panel()).findByRole("link", { name: /Payees & categories/ })).toHaveAttribute("href", "/transactions/names?tab=categories");
+    expect(await within(panel()).findByRole("link", { name: /Payees & categories/ })).toHaveAttribute("href", "/names/categories");
     expect(within(panel()).queryByText(/opening balance/i)).toBeNull();
     const text = panel().textContent ?? "";
     const order = ["Payees & categories", "statement button", "reset button"].map((s) => text.indexOf(s));

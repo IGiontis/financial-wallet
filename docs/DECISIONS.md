@@ -92,6 +92,33 @@ this file disagree, ask him — one of them is a bug.
 
 ## How it looks
 
+- **A bank card's lettering is always light, and the card is never a flat colour under it**
+  (2026-11-24, mockup Γ over «light ink only» (Α) and «darker finishes» (Β)): the card's ink is
+  its own token, NOT `--on-brand`, which flips dark in the dark mode and dropped the name and
+  the amount to 1,1:1 on the black finish. The finishes keep the colours he chose; a soft dark
+  veil runs behind the top and bottom rows where the words sit, and a hairline edge keeps the
+  black card from disappearing into the dark page. *Don't:* letter a card in `--on-brand`, or
+  mute a finish to win contrast.
+- **A wizard's steps are a straight rail with the word under every dot** (2026-11-24, his own
+  shape over a vertical list (Α) and two columns (Β)): on a phone the words used to vanish for
+  one «Βήμα 2/5 · Κατηγορία» line, so the reader could not see what was coming. The words now
+  show at every width, small under each dot; where one does not fit it wraps, and only when
+  even that fails is it cut with «…» (he accepted the «…»; wrapping is tried first because of
+  «never truncate»).
+- **A dialog's tone follows the answer, and a step back unanswers it** (2026-11-24): the band
+  takes its colour the moment the kind tile is tapped — not a step later — and a step BACK to
+  that question clears the mark, the colour and the way forward («διάλεξα αλλά γύρισα πίσω, άρα
+  είμαι null ξανά»). The value is kept, so re-tapping the same answer throws nothing away.
+  *Don't:* leave a dialog coloured for a question the reader is looking at unanswered.
+- **No dialog takes the whole phone screen, and a picker grows with the screen** (2026-11-24):
+  `AccountModal` was the only `fullscreen` dialog in the app; the category grid was pinned at
+  216px, two rows on a phone. It now takes 46vh on a phone and 38vh from 576px up — lower on a
+  laptop ON PURPOSE, because the same dialog in a shorter window would otherwise gain a second
+  scrollbar beside the grid's.
+- **«Πού πήγε ο μήνας» is bars in a row** (2026-11-24, Α over a doughnut): category, bar,
+  amount — the same reading on a phone and on a desktop.
+- **Goals carry their year as a chip, with a year filter above the list** (2026-11-24, Α over
+  sections per year): one list stays one list; the Planner groups by year on its own.
 - **Two colourways only**: blue (default) and black & gold; each light and dark. Normal, not
   desaturated colours. Never pure white or black (warm off-white; dark grey, not near-black).
 - **Gradients run dark top-left → light bottom-right.**
@@ -269,3 +296,13 @@ change that the demo doesn't show yet adds a line here:
   tour's own «+» steps still find the «+» (unmoved, still first on the left). `/transactions` gained a real
   title header and lost the «+» that sat beside its search field: a tour step pointing at that «+» must move
   to the header's.
+- Sidebar sections + bills card foot (2026-11-24): «Ημερολόγιο» became a parent («Ημερολόγιο» `/calendar` ·
+  «Ημερολόγιο συναλλαγών» `/calendar/transactions`) and «Δικαιούχοι & κατηγορίες» its own entry («Δικαιούχοι»
+  `/names/payees` · «Κατηγορίες» `/names/categories`); the bills «Κανονικό» card gained a foot of two date
+  blocks («Προηγούμενος» · «Επόμενος»). The demo runs all of it as it is — no fixture or facade data is
+  involved, and the old addresses redirect. In the pass: the tour's planned steps for the names page and the
+  transactions calendar (first backlog line) must point at the NEW addresses, not `/transactions/names` /
+  `/transactions/calendar`; and a fixture bill with no payment history would show the foot's «—» case.
+- Card ink, wizard rail, dialog heights (2026-11-24): the bank cards' lettering, the wizard steps' words on a
+  phone, `AccountModal` no longer fullscreen and the taller category grid are all plain UI — the demo draws
+  them with the data it already has. Nothing to add in the pass.

@@ -686,10 +686,10 @@ export function SettingsPage() {
         {tab === "data" && (
           <>
             {/* ── Categories: managed on their own page, with the payees ──────────── */}
-            {/* One place for them (item 85): «Δικαιούχοι & κατηγορίες», under
-                Transactions. Here only the way there. */}
+            {/* One place for them (item 85): «Δικαιούχοι & κατηγορίες», its own
+                entry in the menu. Here only the way there. */}
             <Section title={t("categories.manageTitle")} subtitle={t("names.settingsHint")}>
-              <Link to="/transactions/names?tab=categories" className="btn btn-outline-secondary btn-sm">
+              <Link to="/names/categories" className="btn btn-outline-secondary btn-sm">
                 {t("names.settingsLink")} ›
               </Link>
             </Section>

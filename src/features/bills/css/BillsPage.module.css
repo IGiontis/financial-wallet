@@ -1637,9 +1637,66 @@
   font-size: var(--fs-small);
 }
 
-.stripLast {
+/* «Κανονικό»'s foot: the payment before this one and the one coming, two boxes
+   side by side, each led by the same square date block as the dated lines
+   (owner, 2026-11-19). They stack rather than squeeze on a narrow phone. */
+.stripFoot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.footBlock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.footText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.footWord {
   font-size: var(--fs-small);
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.footFigure {
+  font-size: var(--fs-text);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The day already paid wears the paid green, as a settled card does. */
+.footDayPrev {
+  border-color: transparent;
+  background: var(--income-wash);
+  color: var(--color-income-text);
+}
+
+/* The day still to come, and a day there is none of: empty and dashed —
+   nothing has happened on it. */
+.footDayNext,
+.footDayNone {
+  border-style: dashed;
+  background: transparent;
+}
+
+.footDayNone {
+  color: var(--color-text-secondary);
+}
+
+.footDayPrev .stripDayMonth,
+.footDayNone .stripDayNum {
+  color: inherit;
 }
 
 .stripAmount {

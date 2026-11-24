@@ -115,6 +115,17 @@
   --chart-income: #12855a;
   --chart-expense: #c4302b;
   --chart-net: #5560d8;
+
+  /* A bank card's own ink and the shade its words sit on. The finishes
+     (accountTones.ts) are the same colours in daylight and in the dark, so
+     their lettering is too — it used to be `--on-brand`, which flips to a dark
+     navy in the dark mode and dropped a card's name and amount to 1,1:1 on the
+     black finish (owner, 2026-11-24). The veil is the dark a card's face fades
+     into at the top and bottom, where the words are; the middle keeps its
+     colour. `cardContrast.test.ts` measures both. */
+  --card-ink: #f8fafc;
+  --card-veil: #060a12;
+  --card-veil-rgb: 6, 10, 18;
 }
 
 :root[data-bs-theme="dark"] {
@@ -155,6 +166,12 @@
   /* The ink of a shadow and a scrim in the dark: near-black, never black. In
      daylight it is the page's own text colour (theme.css). */
   --shadow-ink: #07090c;
+
+  /* The same as in daylight: a card's finish does not change with the mode,
+     so neither does what is written on it (see the light block). */
+  --card-ink: #f8fafc;
+  --card-veil: #060a12;
+  --card-veil-rgb: 6, 10, 18;
 }
 
 /* ══ The grounds, in both colourways ═════════════════════════════════════════

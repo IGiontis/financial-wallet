@@ -74,6 +74,28 @@ every difference you can see.
     Long titles wrap, never cut (`.modal-title` is `overflow-wrap: anywhere`, theme.css).
     `uiConventions.test.ts` fails on an inline `fontSize` in a header's opening tag or first line.
 
+17. **A wizard shows every step's WORD, at every width** — MUST, for every wizard that exists
+    and every one built later (owner, 2026-11-24): `WizardSteps`, the straight rail, the number
+    in the dot and the name under it. On a phone with 4+ steps the dots shrink to make room and
+    a word that still does not fit is cut with «…» (the button keeps it whole for a screen
+    reader); never hide the words for a «Βήμα 2/5 · …» line. The reader must see the whole path
+    before starting.
+18. **A dialog never takes the whole phone screen** (owner, 2026-11-24): no `fullscreen` on a
+    form dialog — it sits in the middle, `centered scrollable`, like every other one.
+19. **A picker inside a dialog takes its height from the SCREEN**, not from a fixed number
+    (owner, 2026-11-24): `max-height: min(52vh, …)` and it scrolls inside itself, so a phone
+    shows several rows of categories/cards instead of two. Same for every future picker.
+
+20. **An answer counts only while it is marked on screen** (owner, 2026-11-24): a step the
+    reader goes BACK to is being asked again — its tiles show nothing picked, the dialog's tone
+    band loses its colour, the title goes back to the neutral one, and Next does not pass until
+    the question is answered again, even with the same answer. The stored VALUE is kept, so
+    tapping the same answer loses nothing that was filled in after it. Applies to every wizard
+    that asks the kind/direction inside itself (`AddTransactionModal`, planner `EntryEditor`).
+
+**These rules are the default for everything built from now on**, not a list of past fixes
+(owner, 2026-11-24): a new wizard, quick action, «+» or dialog copies them without being told.
+
 `src/styles/uiConventions.test.ts` enforces what a test can see; the rest is checked by the
 side-by-side screenshots.
 

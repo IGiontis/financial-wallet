@@ -34,7 +34,9 @@ how things work — see `docs/ARCHITECTURE.md`.
 Defined in `src/lib/router.tsx`. Lazy components: `src/lib/lazyRoutes.ts`; chunk functions
 (shared with the idle prefetch): `src/lib/pageChunks.ts`. Sidebar: `navGroups` in
 `src/features/layout/Sidebar.tsx` — groups Standing («Where you stand»), Daily, Plan,
-Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
+Holdings («What you own & owe»). An entry with `children` is a parent: it opens its child
+routes instead of being a link itself (Transactions, Names, Incomes, Bills, Business,
+Calendar). Guards and route redirects: `src/lib/routeGuards.tsx` (`NamesRedirect`).
 
 | Path | Page component (file) | Chunk | Sidebar (group › parent) | Query / params |
 |---|---|---|---|---|
@@ -43,11 +45,14 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/login` | `LoginPage` (`features/auth/LoginPage.tsx`) | `login` | — (`PublicOnlyRoute`) | — |
 | `/register` | `RegisterPage` (`features/auth/RegisterPage.tsx`) | `register` | — (`PublicOnlyRoute`) | — |
 | `/` | `OverviewPage` (`features/overview/pages/OverviewPage.tsx`) | `overview` | Standing › Overview | `?quick=expense` (app-icon shortcut, read by `AddFab`), `?tour=1` (`TourGate`); `?tab=all` (default) \| `today` \| `month` \| `flow` \| `position` (`usePageTab`; the last one also remembered on the device, localStorage `overview-tab`) |
-| `/transactions` | `TransactionsPage` (`features/transactions/pages/TransactionPage.tsx`) | `transactions` | Daily › Transactions › All | `?category=<id>`; old `?tab=calendar` redirects to `/transactions/calendar` |
+| `/transactions` | `TransactionsPage` (`features/transactions/pages/TransactionPage.tsx`) | `transactions` | Daily › Transactions › All | `?category=<id>`; old `?tab=calendar` redirects to `/calendar/transactions` |
 | `/transactions/new` | `NewTransactionPage` (`features/transactions/pages/NewTransactionPage.tsx`) | `newTransaction` | Daily › Transactions › New | — |
-| `/transactions/calendar` | `TransactionsPage view="calendar"` (same file) | `transactions` | Daily › Transactions › Calendar | — |
+| `/transactions/calendar` | `<Navigate to="/calendar/transactions">` (old address, moved under «Ημερολόγιο» 2026-11-19) | — | — | — |
 | `/transactions/ledger` | `LedgerPage` (`features/transactions/pages/LedgerPage.tsx`) | `ledger` | Daily › Transactions › Ledger | — |
-| `/transactions/names` | `NamesPage` (`features/names/NamesPage.tsx`) | `names` | Daily › Transactions › Names | `?tab=payees` (default) \| `categories` |
+| `/transactions/names` | `NamesRedirect` (`lib/routeGuards.tsx`) — old address; `?tab=categories` → `/names/categories`, anything else → `/names/payees`, other query kept | — | — | — |
+| `/names` | `<Navigate to="/names/payees">` | — | — (the menu entry opens its children) | — |
+| `/names/payees` | `NamesPage view="payees"` (`features/names/NamesPage.tsx`) | `names` | Names › Payees | — |
+| `/names/categories` | `NamesPage view="categories"` (same file) | `names` | Names › Categories | — |
 | `/analytics` | `AnalyticsPage` (`features/analytics/pages/AnalyticsPage.tsx`) | `analytics` | Standing › Analytics | — |
 | `/investments` | default export of `features/budget/InvestmentsPage.tsx` | `investments` | Holdings › Investments | `?tab=overview` \| `cards` \| `list` (`useGoalTab`) |
 | `/goals` | default export of `features/goals/GoalsPage.tsx` | `goals` | Plan › Goals | `?tab=overview` \| `cards` \| `list` (`useGoalTab`) |
@@ -60,7 +65,8 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/incomes/manage` | `IncomesPage view="manage"` | `incomes` | Daily › Incomes › Manage | — |
 | `/incomes/all` | `IncomesPage view="all"` | `incomes` | Daily › Incomes › All | — |
 | `/planner` | `PlannerPage` (`features/plannerPage/PlannerPage.tsx`) | `planner` | Plan › Planner | in-page `ViewSwitch` (state only) |
-| `/calendar` | default export of `features/calendar/CalendarPage.tsx` | `calendar` | Plan › Calendar | — |
+| `/calendar` | default export of `features/calendar/CalendarPage.tsx` | `calendar` | Plan › Calendar › Calendar | — |
+| `/calendar/transactions` | `TransactionsPage view="calendar"` (`features/transactions/pages/TransactionPage.tsx`) — «Ημερολόγιο συναλλαγών» | `transactions` | Plan › Calendar › Transactions calendar | — |
 | `/allocation` | `<Navigate to="/planner">` (old page, merged into Planner) | — | — | — |
 | `/debts` | default export of `features/debts/DebtsPage.tsx` | `debts` | Holdings › Debts | `?tab=overview` \| `plan` \| `archive` (`usePageTab`); route state `{ person }` (old links) → `/debts/person/:key` |
 | `/debts/person/:key` | `DebtPersonPage` (`features/debts/DebtPersonPage.tsx`, re-exported by `DebtsPage.tsx`) — one person's debts | `debts` | — (from the list's rows) | `:key` = `personKey(name)` — an opaque 10-character hash, never the name (no personal data in addresses); unknown key → «not found» + way back; `?tab=open` \| `settled` (`usePageTab`); density remembered per device (`useDensity("debts-person")`) |
@@ -102,7 +108,8 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 ### `bills` — «Λογαριασμοί», recurring payments ticked off when paid
 - Page `BillsPage.tsx` (four routes = four views, reached from the sidebar — no link tabs on the page); the lists
   («Πληρωμές», «Όλα») switch between three views (`billViews.ts`, kept per device as `bills-view-2`, the old
-  `bills-view` read once): «Λίστα» = a card per bill with its dates (`BillStrip`, `billStrip.ts`, density `useDensity("bills")`) ·
+  `bills-view` read once): «Λίστα» = a card per bill with its dates (`BillStrip`, `billStrip.ts`, density `useDensity("bills")`;
+  «Κανονικό» adds a foot of two date blocks, `BillFootDay` — «Προηγούμενος» · «Επόμενος») ·
   «Ο μήνας» (`BillMonthTimeline`) · «Η χρονιά» (`BillYearAhead` + `BillYearCost`); `BillDetailModal` = «Προβολή»
   with «Ενέργειες» as a step inside it (edit, pause, «τα έχω πληρώσει», undo, delete); `AddBillModal` (wizard), `MarkPaidModal`, `SettleOverdueModal`, `BillManage`, `BillMonthTimeline`, `BillYearAhead`, `BillYearGrid`, `BillAlertPopup` (mounted in `MainLayout`).
 - Hooks `useBills.ts` (+ `billCache.ts` keys/patches), `useBillAlerts.ts`; `useBillsNeedingAttention` feeds the sidebar badge.
@@ -131,7 +138,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Logic `calendarDays.ts`, `dayTone.ts`; tests `calendarDays.test.ts`, `CalendarPage.test.tsx`.
 
 ### `categories` — category manager and pickers
-- No route of its own: `CategoryManager.tsx` is the «Κατηγορίες» tab of `/transactions/names`; `CategoryPicker`, `CategoryModal`, `NewCategoryButton` used by forms.
+- No route of its own: `CategoryManager.tsx` is the whole of `/names/categories` (drawn by `NamesPage`); `CategoryPicker`, `CategoryModal`, `NewCategoryButton` used by forms.
 - Hooks live in `transactions/hooks/useTransactions.ts` (`useCategories` …); collection `categories`.
 - Tests `CategoryManager.test.tsx`, `categoryUsage.test.ts`.
 
@@ -161,7 +168,9 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Page `LegalPage.tsx` (text in `legalContent.ts`); `CookieBanner` (analytics consent), `LegalLinks`, `AgeTermsConsent`, `RecaptchaNotice`.
 
 ### `names` — «Δικαιούχοι & κατηγορίες»
-- Page `NamesPage.tsx` (`PageHeader` + tabs `payees` → `PayeesTab.tsx`, `categories` → `categories/CategoryManager.tsx`).
+- Page `NamesPage.tsx` — its own menu entry with two child routes (owner, 2026-11-19; the two
+  halves used to be `?tab=` of one page under «Συναλλαγές»): `PageHeader` + `view="payees"`
+  → `PayeesTab.tsx` / `view="categories"` → `categories/CategoryManager.tsx`. No tabs on the page.
   Layouts (2026-11-16 mockups): payees = compact cards in a grid (2/3/4 per row) with filter chips «Όλοι · Στις
   προτάσεις · Διπλοί»; categories = three columns by type «Έξοδα · Έσοδα · Και τα δύο» (`CategoryColumn`, each
   paged), chips instead of columns on phones. Styles `names/css/Names.module.css`.

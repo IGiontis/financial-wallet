@@ -39,37 +39,35 @@ export function WizardSteps<Step extends string>({
   const nameOf = (step: Step) => (label ? label(step) : t(`transactions.wizard.${step}`));
   const many = steps.length > 3;
 
-  // Labels are never cut short. They wrap where there is room; on a phone a
-  // rail of four steps or more has none — «Κατηγορία» does not fit a fifth of
-  // 320px — so there the labels give way (still read out on each button) to
-  // one line under the dots, «Βήμα 2/5 · Κατηγορία» (`.stepsNow`).
+  // Every step shows its word, at every width (owner, 2026-11-24): the point
+  // of the rail is to see the whole path before starting. Labels wrap where
+  // there is room; on a phone a rail of four steps or more has little, so
+  // there the dots shrink and a word that still does not fit is cut with «…»
+  // (`.stepsMany`) — the button's accessible name keeps it whole.
   return (
-    <>
-      <div className={`${styles.steps} ${large ? styles.stepsLarge : ""} ${many ? styles.stepsMany : ""}`} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: steps.length })}>
-        {steps.map((step, i) => (
-          <Fragment key={step}>
-            {i > 0 && <span className={`${styles.stepBar} ${i <= index ? styles.stepBarDone : ""}`} aria-hidden />}
-            {/* An unreached step is inert rather than hidden, so the length of
-                the path stays visible from the first screen. */}
-            <button
-              type="button"
-              className={`${styles.step} ${i === index ? styles.stepCurrent : ""} ${i < index ? styles.stepDone : ""}`}
-              disabled={open ? i === index : i >= index}
-              aria-current={i === index ? "step" : undefined}
-              onClick={() => onGo(step)}
-            >
-              <span className={styles.stepDot}>{i + 1}</span>
-              <span className={styles.stepLabel}>{nameOf(step)}</span>
-            </button>
-          </Fragment>
-        ))}
-      </div>
-      {many && index >= 0 && (
-        <p className={styles.stepsNow} aria-hidden>
-          {t("transactions.wizard.stepNow", { current: index + 1, total: steps.length, step: nameOf(current) })}
-        </p>
-      )}
-    </>
+    <div className={`${styles.steps} ${large ? styles.stepsLarge : ""} ${many ? styles.stepsMany : ""}`} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: steps.length })}>
+      {steps.map((step, i) => (
+        <Fragment key={step}>
+          {i > 0 && <span className={`${styles.stepBar} ${i <= index ? styles.stepBarDone : ""}`} aria-hidden />}
+          {/* An unreached step is inert rather than hidden, so the length of
+              the path stays visible from the first screen. */}
+          <button
+            type="button"
+            className={`${styles.step} ${i === index ? styles.stepCurrent : ""} ${i < index ? styles.stepDone : ""}`}
+            disabled={open ? i === index : i >= index}
+            aria-current={i === index ? "step" : undefined}
+            onClick={() => onGo(step)}
+          >
+            <span className={styles.stepDot}>{i + 1}</span>
+            {/* `title` so a cut word can still be read on a desktop; the
+                button's text is the whole word either way. */}
+            <span className={styles.stepLabel} title={nameOf(step)}>
+              {nameOf(step)}
+            </span>
+          </button>
+        </Fragment>
+      ))}
+    </div>
   );
 }
 

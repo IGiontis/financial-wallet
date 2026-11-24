@@ -140,8 +140,11 @@ export default function AccountModal({
     { step: "details", label: t("accounts.main"), value: main ? t("common.yes") : t("common.no") },
   ];
 
+  // No `fullscreen="sm"`: it was the only dialog in the app that took the
+  // whole phone screen, which read as a bug beside every other form (owner,
+  // 2026-11-24). A short form sits in the middle like all the rest.
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>{account ? t("accounts.editTitle") : t("accounts.addTitle")}</ModalHeader>
       <form
         noValidate

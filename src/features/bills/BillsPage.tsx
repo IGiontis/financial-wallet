@@ -709,7 +709,8 @@ function OffTag() {
 // that date is — a late bill lists every unpaid period, so none hides (owner,
 // 2026-11-17). More of it with the density switch:
 //   Απλό      — the head and the dated lines;
-//   Κανονικό  — + a foot band: status, cadence, the usual range, the last payment;
+//   Κανονικό  — + a foot band: status, cadence, the usual range, and the days on
+//               either side of today as two date blocks («Προηγούμενος» · «Επόμενος»);
 //   Αναλυτικό — + in that band: the three figures (last · each time · next) and the six months.
 // The card is the only affordance: a tap opens the bill, where it is paid,
 // changed or deleted. Which dates and which figures: `billStrip.ts`.
@@ -756,6 +757,50 @@ function StripLineRow({ line, formatCurrency, locale }: { line: StripLine; forma
           {status === "paid" ? <FiCheck aria-hidden /> : status === "late" ? <FiAlertTriangle aria-hidden /> : <FiAlertCircle aria-hidden />}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * One block of the «Κανονικό» foot: a word, the square date block the dated
+ * lines already use, and the figure under the word (owner, 2026-11-19 — a
+ * calendar square, never a coloured dot).
+ *
+ * A bill with no such day keeps its word and shows «—» in a plain dashed block,
+ * never an empty box, and never the green of a payment that did not happen.
+ */
+function BillFootDay({
+  word,
+  date,
+  amount,
+  approx,
+  tone,
+  note,
+  locale,
+  formatCurrency,
+}: {
+  word: string;
+  date?: Date;
+  amount?: number;
+  /** A variable bill's estimate, printed with «~». */
+  approx?: boolean;
+  /** The block's look while there IS a day: paid green behind, dashed ahead. */
+  tone: string;
+  /** What stands in for the figure when there is no day. */
+  note: string;
+  locale: string;
+  formatCurrency: (n: number) => string;
+}) {
+  return (
+    <div className={styles.footBlock}>
+      <span className={`${styles.stripDay} ${date ? tone : styles.footDayNone}`} title={date ? dateFormat("dayLong", locale).format(date) : undefined}>
+        <span className={styles.stripDayNum}>{date ? dateFormat("dayNumber", locale).format(date) : "—"}</span>
+        {date && <span className={styles.stripDayMonth}>{dateFormat("monthShort", locale).format(date)}</span>}
+      </span>
+      <span className={styles.footText}>
+        <span className={styles.footWord}>{word}</span>
+        <span className={styles.footFigure}>{date && amount !== undefined ? `${approx ? "~" : ""}${formatCurrency(amount)}` : note}</span>
+      </span>
     </div>
   );
 }
@@ -836,12 +881,33 @@ function BillStripCard({
             {variable && <BillSubtitle bill={bill} formatCurrency={formatCurrency} />}
             {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
           </span>
+          {/* The days on either side of today, as two small date blocks: the
+              payment before this one and the one coming (owner, 2026-11-19).
+              The card's HEAD never changes with the density — this is the foot
+              (`.claude/rules/ui.md` 10). «Αναλυτικό» says the same in its three
+              figures, so it keeps those instead. */}
           {density === "normal" && (
-            <span className={styles.stripLast}>
-              {lastPaid !== undefined && bill.lastPaidDate
-                ? t("bills.stripLastPaid", { amount: formatCurrency(lastPaid), date: dateFmt.format(bill.lastPaidDate).replace(/ /g, "\u00a0") })
-                : t("bills.neverPaid")}
-            </span>
+            <div className={styles.stripFoot}>
+              <BillFootDay
+                word={t("bills.stripPrevious")}
+                date={bill.lastPaidDate}
+                amount={lastPaid}
+                tone={styles.footDayPrev}
+                note={t("bills.neverPaid")}
+                locale={locale}
+                formatCurrency={formatCurrency}
+              />
+              <BillFootDay
+                word={t("bills.stripNext")}
+                date={bill.nextDueDate}
+                amount={expectedAmount(bill)}
+                approx={bill.isVariableAmount}
+                tone={styles.footDayNext}
+                note={t("bills.stripNoDate")}
+                locale={locale}
+                formatCurrency={formatCurrency}
+              />
+            </div>
           )}
           {density === "detailed" && (
             <div className={styles.stripMore}>

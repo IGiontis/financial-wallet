@@ -119,9 +119,14 @@ describe("the page list", () => {
     expect(chunkForPath("/transactions")).toBe("transactions");
     expect(chunkForPath("/transactions/new")).toBe("newTransaction");
     expect(chunkForPath("/transactions/ledger")).toBe("ledger");
-    // The calendar is the list's own page in another view: the same chunk.
-    expect(chunkForPath("/transactions/calendar")).toBe("transactions");
-    expect(chunkForPath("/transactions/names")).toBe("names");
+    // «Ημερολόγιο συναλλαγών» sits under «Ημερολόγιο» but is the transactions
+    // list's own page in another view: the same chunk, not the calendar's.
+    expect(chunkForPath("/calendar")).toBe("calendar");
+    expect(chunkForPath("/calendar/transactions")).toBe("transactions");
+    // «Δικαιούχοι & κατηγορίες»: its own entry, two pages, one chunk.
+    expect(chunkForPath("/names")).toBe("names");
+    expect(chunkForPath("/names/payees")).toBe("names");
+    expect(chunkForPath("/names/categories")).toBe("names");
     expect(chunkForPath("/bills/pay")).toBe("bills");
     // «Δουλειά»'s two pages are one chunk, as Πάγια's four are.
     expect(chunkForPath("/business")).toBe("business");

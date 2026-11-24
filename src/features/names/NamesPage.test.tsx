@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import i18n from "../../i18n";
@@ -7,10 +7,10 @@ import { PageAddProvider } from "../../shared/components/PageAddProvider";
 import { useCurrentPageAdd, usePageAdd } from "../../shared/hooks/usePageAdd";
 import { NamesPage } from "./NamesPage";
 
-// «Δικαιούχοι & κατηγορίες»: the two tabs and the address, the floating «+»
-// following the tab, and the payee rename — the count the review states is
-// the count handed to the write, a duplicate is refused, a similar name only
-// suggested.
+// «Δικαιούχοι & κατηγορίες»: the two child pages (`/names/payees`,
+// `/names/categories`), the floating «+» following the page, and the payee
+// rename — the count the review states is the count handed to the write, a
+// duplicate is refused, a similar name only suggested.
 
 const state = vi.hoisted(() => ({
   transactions: [] as unknown[],
@@ -28,8 +28,8 @@ vi.mock("../bills/useBills", () => ({ useBills: () => ({ data: state.bills, isSu
 vi.mock("../debts/useDebts", () => ({ useDebts: () => ({ data: state.debts, isSuccess: true }) }));
 vi.mock("./useNameActions", () => ({ useRenamePayee: () => ({ mutateAsync: state.rename, isPending: false }) }));
 vi.mock("../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: undefined }) }));
-// The categories tab has its own tests (CategoryManager.test.tsx); here it only
-// has to register its add, as the real one does.
+// The categories page has its own tests (CategoryManager.test.tsx); here it
+// only has to register its add, as the real one does.
 vi.mock("../categories/CategoryManager", () => ({
   default: function Categories() {
     usePageAdd("New category", () => {});
@@ -53,11 +53,11 @@ function Fab() {
   );
 }
 
-const renderAt = (path: string) =>
+const renderAt = (path = "/names/payees", view: "payees" | "categories" = "payees") =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <PageAddProvider>
-        <NamesPage />
+        <NamesPage view={view} />
         <Fab />
         <Where />
       </PageAddProvider>
@@ -91,53 +91,42 @@ beforeEach(() => {
   state.rename.mockClear();
 });
 
-describe("the tabs", () => {
-  it("opens on Payees, with the explanation, and keeps the tab in the address", async () => {
-    const user = userEvent.setup();
-    renderAt("/transactions/names");
-    expect(screen.getByRole("tab", { name: "Payees" })).toHaveAttribute("aria-selected", "true");
+describe("the two pages", () => {
+  it("is one page per kind, with its explanation and no tabs over it", () => {
+    renderAt();
     expect(screen.getByText(/The person or shop you pay/)).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent("/transactions/names");
+    // A section's sub-pages are the sidebar's children, never inner tabs
+    // (`.claude/rules/ui.md` 2): there is no tab row left on the page.
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.getByTestId("where")).toHaveTextContent("/names/payees");
+  });
 
-    await user.click(screen.getByRole("tab", { name: "Categories" }));
-    expect(screen.getByRole("tab", { name: "Categories" })).toHaveAttribute("aria-selected", "true");
+  it("shows the categories on their own page", () => {
+    renderAt("/names/categories", "categories");
     expect(screen.getByText("categories tab")).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent("/transactions/names?tab=categories");
-  });
-
-  it("lands on the tab the address names (Settings links to ?tab=categories)", () => {
-    renderAt("/transactions/names?tab=categories");
-    expect(screen.getByRole("tab", { name: "Categories" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveTextContent("categories tab");
-  });
-
-  it("moves between tabs with the arrow keys", async () => {
-    const user = userEvent.setup();
-    renderAt("/transactions/names");
-    screen.getByRole("tab", { name: "Payees" }).focus();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "Categories" })).toHaveFocus();
-    expect(screen.getByTestId("where")).toHaveTextContent("?tab=categories");
+    expect(screen.queryByText(/The person or shop you pay/)).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 });
 
 describe("the floating «+»", () => {
-  it("adds what the open tab lists", async () => {
+  it("adds what the page lists", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     expect(screen.getByTestId("fab")).toHaveTextContent("New payee");
     await user.click(screen.getByTestId("fab"));
     expect(within(screen.getByRole("dialog")).getByText("New payee")).toBeInTheDocument();
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    cleanup();
 
-    await user.click(screen.getByRole("tab", { name: "Categories" }));
+    renderAt("/names/categories", "categories");
     expect(screen.getByTestId("fab")).toHaveTextContent("New category");
   });
 });
 
 describe("the payee list", () => {
   it("lists saved and used names once each, with how many records carry them", () => {
-    renderAt("/transactions/names");
+    renderAt();
     const list = screen.getByRole("list", { name: "Payees" });
     const rows = within(list).getAllByRole("listitem").map((li) => li.textContent);
     // By hand: Δώρο ×3 (1, 2, 3 — the transfer half is not a payee), Doro ×1, Lidl ×1.
@@ -148,7 +137,7 @@ describe("the payee list", () => {
   });
 
   it("offers the Greeklish twin as a possible duplicate", () => {
-    renderAt("/transactions/names");
+    renderAt();
     const box = screen.getByTestId("similar-pairs");
     expect(box).toHaveTextContent("Δώρο");
     expect(box).toHaveTextContent("Doro");
@@ -156,7 +145,7 @@ describe("the payee list", () => {
 
   it("filters by the chips — each count is the cards it shows", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     const chips = screen.getByRole("group", { name: "Which payees to show" });
     const cards = () => within(screen.getByRole("list", { name: "Payees" })).getAllByRole("listitem").map((li) => li.textContent ?? "");
     // By hand: all = Δώρο, Doro, Lidl; saved = Δώρο, Lidl; duplicates = the pair Δώρο · Doro.
@@ -187,7 +176,7 @@ describe("renaming a payee", () => {
 
   it("states how many records change, and hands exactly those to the write", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     const dialog = await openRename(user, "Δώρο");
     const field = within(dialog).getByLabelText(/Payee/);
     expect(field).toHaveValue("Δώρο");
@@ -209,7 +198,7 @@ describe("renaming a payee", () => {
 
   it("refuses a name that is already there, and offers the merge instead", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     const dialog = await openRename(user, "Doro");
     const field = within(dialog).getByLabelText(/Payee/);
     await user.clear(field);
@@ -232,7 +221,7 @@ describe("renaming a payee", () => {
 
   it("only suggests a similar name — Next still goes on with the name typed", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     const dialog = await openRename(user, "Lidl");
     const field = within(dialog).getByLabelText(/Payee/);
     await user.clear(field);
@@ -248,7 +237,7 @@ describe("renaming a payee", () => {
 describe("adding a payee", () => {
   it("refuses a duplicate and saves a new one after the review", async () => {
     const user = userEvent.setup();
-    renderAt("/transactions/names");
+    renderAt();
     await user.click(screen.getAllByRole("button", { name: "New payee" })[0]);
     const dialog = screen.getByRole("dialog");
     const field = within(dialog).getByLabelText(/Payee/);

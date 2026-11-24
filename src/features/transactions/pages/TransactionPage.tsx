@@ -422,10 +422,10 @@ function Pagination({
 type TransactionsTab = "list" | "calendar";
 
 /**
- * The Transactions pages: the list (`/transactions`) or the same records as a
- * month's calendar (`/transactions/calendar`) — each its own page under
- * «Συναλλαγές» in the menu, sharing the records, the read-only view and the
- * editor.
+ * The Transactions pages: the list (`/transactions`, under «Συναλλαγές» in the
+ * menu) or the same records as a month's calendar (`/calendar/transactions`,
+ * under «Ημερολόγιο» since 2026-11-19) — each its own page, sharing the
+ * records, the read-only view and the editor.
  */
 export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } = {}) {
   const { t, i18n } = useTranslation();
@@ -701,8 +701,9 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   }, []);
 
   // The calendar used to be a tab of this page, kept in the address as
-  // `?tab=calendar`; an old link or bookmark lands on its own page now.
-  if (view === "list" && searchParams.get("tab") === "calendar") return <Navigate to="/transactions/calendar" replace />;
+  // `?tab=calendar`; an old link or bookmark lands on its own page under
+  // «Ημερολόγιο» now (owner, 2026-11-19).
+  if (view === "list" && searchParams.get("tab") === "calendar") return <Navigate to="/calendar/transactions" replace />;
 
   return (
     <PageShell>
@@ -781,7 +782,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                   <div className="d-flex gap-2 ms-auto flex-shrink-0">
                     {/* To «Δικαιούχοι & κατηγορίες», where a rename reaches every record. */}
                     <Link
-                      to="/transactions/names?tab=payees"
+                      to="/names/payees"
                       className="btn btn-outline-secondary btn-sm flex-shrink-0"
                       style={{ whiteSpace: "nowrap" }}
                       title={t("transactions.managePayees")}
@@ -1033,7 +1034,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
           <div style={{ flex: 1, minWidth: 0 }}>
             <CategorySelect value={selectedCategory} onChange={setSelectedCategory} categories={categoryChoiceList} />
           </div>
-          <Link to="/transactions/names?tab=payees" className="btn btn-outline-secondary flex-shrink-0" aria-label={t("transactions.managePayees")} title={t("transactions.managePayees")}>
+          <Link to="/names/payees" className="btn btn-outline-secondary flex-shrink-0" aria-label={t("transactions.managePayees")} title={t("transactions.managePayees")}>
             <FiUsers size={15} />
           </Link>
         </div>

@@ -367,13 +367,29 @@ describe("a new figure from the page's «+»", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ label: "Gym", amount: "40" }), "line");
   });
 
-  it("«Money in» goes on as pay on a date, and Back returns to the question", async () => {
+  it("«Money in» goes on as pay on a date, and Back asks the question afresh", async () => {
     fresh();
+    const head = () => document.querySelector(".modal-header")!.className;
+    expect(head()).not.toMatch(/tone-head/);
     await userEvent.click(screen.getByRole("radio", { name: /^Money in/ }));
+    // The band takes the answer's colour the moment the tile is tapped.
+    expect(head()).toMatch(/tone-head-income/);
     await next();
     expect(cadence(/^Once/)).toHaveAttribute("aria-checked", "true");
+
+    // Back on the question, it is unanswered again (owner, 2026-11-24): no
+    // tile marked, no colour, and Next will not pass until one is tapped —
+    // even when it is the same answer as before.
     await userEvent.click(screen.getByRole("button", { name: /Back/ }));
-    expect(screen.getByRole("radio", { name: /^Money in/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /^Money in/ })).toHaveAttribute("aria-checked", "false");
+    expect(head()).not.toMatch(/tone-head/);
+    await next();
+    expect(screen.getByText("Choose money in or money out.")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "How often" })).toBeNull();
+
+    // Tapping the same answer again keeps everything that was already given.
+    await userEvent.click(screen.getByRole("radio", { name: /^Money in/ }));
+    expect(head()).toMatch(/tone-head-income/);
     await next();
     await userEvent.type(screen.getByLabelText(/day|date/i), "2026-12-20");
     await next();

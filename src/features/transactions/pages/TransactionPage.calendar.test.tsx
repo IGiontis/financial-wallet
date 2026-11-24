@@ -82,7 +82,7 @@ const renderPage = (entry = "/transactions") => {
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/transactions/calendar" element={<TransactionsPage view="calendar" />} />
+          <Route path="/calendar/transactions" element={<TransactionsPage view="calendar" />} />
         </Routes>
         <Where />
       </MemoryRouter>
@@ -103,7 +103,7 @@ describe("Transactions — the calendar page", () => {
 
     // The same records on their own page, «Ημερολόγιο συναλλαγών».
     cleanup();
-    renderPage("/transactions/calendar");
+    renderPage("/calendar/transactions");
     expect(within(tile(i18n.t("calendar.in"))).getByText("€1250.00")).toBeInTheDocument();
     expect(within(tile(i18n.t("calendar.out"))).getByText("€65.50")).toBeInTheDocument();
     // Nothing the 300 transfer or the 100 deposit would have made.
@@ -114,7 +114,7 @@ describe("Transactions — the calendar page", () => {
 
   it("draws a transfer-only day with no figure, and lists the transfer once when tapped", async () => {
     const user = userEvent.setup();
-    renderPage("/transactions/calendar");
+    renderPage("/calendar/transactions");
     const fifth = dayButton(5);
     expect(fifth.textContent).toBe("5");
     await user.click(fifth);
@@ -124,7 +124,7 @@ describe("Transactions — the calendar page", () => {
 
   it("a tap on a day lists exactly that day's records, and a record opens read-only", async () => {
     const user = userEvent.setup();
-    renderPage("/transactions/calendar");
+    renderPage("/calendar/transactions");
     // The 3rd nets +1.154,50: its chip says so.
     expect(dayButton(3).textContent).toContain("+");
     await user.click(dayButton(3));
@@ -143,9 +143,9 @@ describe("Transactions — the calendar page", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("is its own page, and an old «?tab=calendar» link lands on it", () => {
+  it("is its own page under «Ημερολόγιο», and an old «?tab=calendar» link lands on it", () => {
     renderPage("/transactions?tab=calendar&category=all");
-    expect(screen.getByTestId("where").textContent).toBe("/transactions/calendar");
+    expect(screen.getByTestId("where").textContent).toBe("/calendar/transactions");
     expect(dayButton(3)).toBeInTheDocument();
     // No tabs left on either page: the menu is the way between them.
     expect(screen.queryByRole("tab")).toBeNull();

@@ -266,10 +266,12 @@
   text-overflow: ellipsis;
 }
 
-/* A page under a section whose name is too long for the rail («Δικαιούχοι &
-   κατηγορίες») takes a second line rather than being cut: names are never
-   truncated. Two lines fit the sub-link's height. */
-.sidebar .sidebar-sublink .nav-label {
+/* A section, or a page under one, whose name is too long for the rail
+   («Δικαιούχοι & κατηγορίες», its own entry since 2026-11-19) takes a second
+   line rather than being cut: names are never truncated. Two lines fit the
+   link's height. */
+.sidebar .sidebar-sublink .nav-label,
+.sidebar .sidebar-parent .nav-label {
   white-space: normal;
   line-height: 1.2;
 }

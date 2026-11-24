@@ -201,7 +201,7 @@ export function PayeesTab() {
               {query.trim() ? t("names.noMatch") : rows.length === 0 ? t("names.noPayees") : t("names.filterNone")}
             </p>
           ) : (
-            <ul className={styles.grid} aria-label={t("names.tabPayees")}>
+            <ul className={styles.grid} aria-label={t("names.pagePayees")}>
               {shown.slice(0, limit).map((row) => (
                 // The ⋮ at the card's TOP-right (owner, 2026-11-19), where every
                 // other row keeps it; the name beside it takes the rest of the

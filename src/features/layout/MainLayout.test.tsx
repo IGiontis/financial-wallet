@@ -62,8 +62,9 @@ const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 // Every destination the sidebar shows as a link, in its order, with
 // Transactions folded: it is a button over its two pages, which show when it
 // opens (see "an item with pages under it").
-// «Συναλλαγές», «Έσοδα» and «Πάγια» open into their pages, so they are not links themselves.
-const ALL_PATHS = ["/", "/analytics", "/planner", "/calendar", "/goals", "/accounts", "/investments", "/debts", "/settings"];
+// «Συναλλαγές», «Δικαιούχοι & κατηγορίες», «Έσοδα», «Πάγια» and «Ημερολόγιο»
+// open into their pages, so they are not links themselves.
+const ALL_PATHS = ["/", "/analytics", "/planner", "/goals", "/accounts", "/investments", "/debts", "/settings"];
 
 const original = window.matchMedia;
 
@@ -138,8 +139,10 @@ describe.each(["blue", "gold"] as const)("colourway %s", (style) => {
     // Every one of them opens into its pages: no plain link in the group at all.
     expect(within(within(sidebar()).getByRole("list", { name: "Day to day" })).queryAllByRole("link")).toEqual([]);
     const daily = within(within(sidebar()).getByRole("list", { name: "Day to day" }));
-    for (const name of ["Transactions", "Income", "Bills"]) expect(daily.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
-    expect(group("Plan")).toEqual(["/planner", "/calendar", "/goals"]);
+    for (const name of ["Transactions", "Payees & categories", "Income", "Bills"]) expect(daily.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+    // «Ημερολόγιο» opens into its two calendars, so it is a button here too.
+    expect(group("Plan")).toEqual(["/planner", "/goals"]);
+    expect(within(within(sidebar()).getByRole("list", { name: "Plan" })).getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-expanded", "false");
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
 
@@ -207,7 +210,7 @@ describe("«Δουλειά», switched on", () => {
     renderAt("/");
     const daily = within(within(sidebar()).getByRole("list", { name: "Day to day" }));
     expect(daily.queryAllByRole("link")).toEqual([]);
-    expect(daily.getAllByRole("button").map((b) => b.textContent)).toEqual(["Transactions", "Income", "Bills", "Business"]);
+    expect(daily.getAllByRole("button").map((b) => b.textContent)).toEqual(["Transactions", "Payees & categories", "Income", "Bills", "Business"]);
     fireEvent.click(daily.getByRole("button", { name: "Business" }));
     const business = within(daily.getByRole("button", { name: "Business" }).closest("li")!);
     expect(business.getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
@@ -321,18 +324,18 @@ describe("the drawer on a phone", () => {
 describe("an item with pages under it", () => {
   const transactions = () => within(sidebar()).getByRole("button", { name: "Transactions" });
 
-  it("opens in place on a tap, new first, the list second, the ledger third, the names last, and folds away again", async () => {
+  it("opens in place on a tap, new first, the list second, the ledger last, and folds away again", async () => {
     localStorage.setItem("sidebar-collapsed", "false");
     renderAt("/");
     await userEvent.click(transactions());
     expect(transactions()).toHaveAttribute("aria-expanded", "true");
     const pages = within(document.getElementById(transactions().getAttribute("aria-controls")!)!).getAllByRole("link");
+    // The month's calendar moved under «Ημερολόγιο» and the names onto their
+    // own entry (owner, 2026-11-19), so three pages are left here.
     expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
       ["New transaction", "/transactions/new"],
       ["All transactions", "/transactions"],
-      ["Transactions calendar", "/transactions/calendar"],
       ["Ledger", "/transactions/ledger"],
-      ["Payees & categories", "/transactions/names"],
     ]);
 
     await userEvent.click(transactions());
@@ -355,6 +358,38 @@ describe("an item with pages under it", () => {
     await userEvent.click(transactions());
     await userEvent.click(within(sidebar()).getByRole("link", { name: "New transaction" }));
     expect(screen.getByTestId("path")).toHaveTextContent("/transactions/new");
+  });
+
+  it("«Ημερολόγιο» holds the month and the transactions calendar", async () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/");
+    const calendar = within(sidebar()).getByRole("button", { name: "Calendar" });
+    await userEvent.click(calendar);
+    const pages = within(document.getElementById(calendar.getAttribute("aria-controls")!)!).getAllByRole("link");
+    expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Calendar", "/calendar"],
+      ["Transactions calendar", "/calendar/transactions"],
+    ]);
+  });
+
+  it("marks the transactions calendar, and not the month whose address starts it", () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/calendar/transactions");
+    expect(within(sidebar()).getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(sidebar()).getByRole("link", { name: "Transactions calendar" })).toHaveAttribute("aria-current", "page");
+    expect(within(sidebar()).getByRole("link", { name: "Calendar" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("«Δικαιούχοι & κατηγορίες» is its own entry, a page per kind", async () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/");
+    const names = within(sidebar()).getByRole("button", { name: "Payees & categories" });
+    await userEvent.click(names);
+    const pages = within(document.getElementById(names.getAttribute("aria-controls")!)!).getAllByRole("link");
+    expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Payees", "/names/payees"],
+      ["Categories", "/names/categories"],
+    ]);
   });
 
   it("on the collapsed rail opens its pages beside the icon, and closes on a choice", async () => {

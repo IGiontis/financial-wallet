@@ -5,7 +5,7 @@ import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // Route components and lazy page chunks live in their own modules so this file
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
-import { PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
+import { NamesRedirect, PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
 import { AuthSkeleton } from "../features/auth/AuthSkeleton";
 import { OverviewPage, TransactionsPage, TransactionsCalendarPage, NewTransactionPage, LedgerPage, NamesPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, DebtPersonPage, AccountsPage, BusinessPage, NewClosingPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
@@ -84,14 +84,9 @@ export const router = createBrowserRouter([
                   </Suspense>
                 ),
               },
-              {
-                path: "transactions/calendar",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <TransactionsCalendarPage />
-                  </Suspense>
-                ),
-              },
+              // The transactions calendar moved under «Ημερολόγιο» (owner,
+              // 2026-11-19); its old address still lands on it.
+              { path: "transactions/calendar", element: <Navigate to="/calendar/transactions" replace /> },
               {
                 path: "transactions/ledger",
                 element: (
@@ -100,11 +95,23 @@ export const router = createBrowserRouter([
                   </Suspense>
                 ),
               },
+              // «Δικαιούχοι & κατηγορίες» is its own menu entry now; the old
+              // address — and its `?tab=` — lands on the right child page.
+              { path: "transactions/names", element: <NamesRedirect /> },
+              { path: "names", element: <Navigate to="/names/payees" replace /> },
               {
-                path: "transactions/names",
+                path: "names/payees",
                 element: (
                   <Suspense fallback={<PageLoader />}>
-                    <NamesPage />
+                    <NamesPage view="payees" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "names/categories",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <NamesPage view="categories" />
                   </Suspense>
                 ),
               },
@@ -209,6 +216,17 @@ export const router = createBrowserRouter([
                 element: (
                   <Suspense fallback={<PageLoader />}>
                     <CalendarPage />
+                  </Suspense>
+                ),
+              },
+              {
+                // «Ημερολόγιο συναλλαγών»: the records as a month's calendar —
+                // a page under «Ημερολόγιο» (owner, 2026-11-19), still the
+                // Transactions page in its calendar view, so the same chunk.
+                path: "calendar/transactions",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <TransactionsCalendarPage />
                   </Suspense>
                 ),
               },

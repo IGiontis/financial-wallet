@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { Container } from "reactstrap";
 import { useQuery } from "@tanstack/react-query";
 import { SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../shared/components/Skeletons";
@@ -152,6 +152,22 @@ export function ProtectedRoute() {
   if (loading) return <PageLoader />;
   if (!currentUser) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
+}
+
+/**
+ * «Δικαιούχοι & κατηγορίες» was one page with two tabs under «Συναλλαγές»
+ * (`/transactions/names?tab=payees|categories`). It is its own menu entry with
+ * two child routes now — a section's sub-pages are child routes, never inner
+ * tabs (`.claude/rules/ui.md` 2) — so an old link or bookmark is sent to the
+ * page that took its tab over, carrying anything else that was in the address.
+ */
+export function NamesRedirect() {
+  const [params] = useSearchParams();
+  const page = params.get("tab") === "categories" ? "categories" : "payees";
+  const rest = new URLSearchParams(params);
+  rest.delete("tab");
+  const query = rest.toString();
+  return <Navigate to={`/names/${page}${query ? `?${query}` : ""}`} replace />;
 }
 
 /** Login/register pages — redirects away once the user is signed in. */

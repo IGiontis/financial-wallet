@@ -18,24 +18,48 @@
   border: 0;
   border-radius: 12px;
   background: var(--card);
-  color: var(--on-brand);
+  color: var(--card-ink);
   text-align: left;
   box-shadow:
     0 4px 12px color-mix(in srgb, var(--shadow-ink) 16%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--on-brand) 22%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--card-ink) 22%, transparent),
+    /* A rim of its own. In the dark mode the black finish measures 1,19:1
+       against the page — no fill can tell those two apart, and making the
+       finish lighter only walks it through the page's own brightness. So the
+       edge does it: the ink at a third, which reads as a card's bevel on a
+       bright finish and as the only outline on the dark one. */
+      inset 0 0 0 1px color-mix(in srgb, var(--card-ink) 34%, transparent);
   transition: transform 0.15s ease;
 }
 
-/* The sheen of a real card under a light. */
-.card::after {
+/* The ground the words sit on (owner, 2026-11-24, option Γ over muting the
+   finishes). A finish is bright at its light end — the gold runs to #eab308 —
+   and near-white lettering cannot hold 4,5:1 there. So the face fades into the
+   dark at the top and the bottom, where the name, the balance and the note
+   are, and keeps its colour through the middle, the way the print on a real
+   card sits over a shaded band. Measured per finish in `cardContrast.test.ts`.
+   Not for cash or «no card»: neither is a coloured face, and both draw their
+   own ::before. */
+.card:not(.cash):not(.none)::before {
   content: "";
   position: absolute;
   z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(var(--card-veil-rgb), 0.36) 0%, rgba(var(--card-veil-rgb), 0) 38%, rgba(var(--card-veil-rgb), 0) 54%, rgba(var(--card-veil-rgb), 0.46) 100%);
+  pointer-events: none;
+}
+
+/* The sheen of a real card under a light. Below the veil (-2 against its -1),
+   so it lifts the colour in the middle without lifting the words' ground. */
+.card::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
   top: -45%;
   right: -25%;
   width: 90%;
   height: 130%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--on-brand) 20%, transparent), transparent 70%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--card-ink) 20%, transparent), transparent 70%);
   transform: rotate(-20deg);
   pointer-events: none;
 }
@@ -83,7 +107,7 @@ button.card:focus-visible {
   flex-shrink: 0;
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--on-brand) 24%, transparent);
+  background: color-mix(in srgb, var(--card-ink) 24%, transparent);
   font-size: var(--fs-small);
   font-weight: 700;
 }

@@ -8,7 +8,7 @@ import "./css/Sidebar.css";
 import { linkMatches, useShownPathname } from "./usePendingNav";
 import { prefetchPath } from "../../lib/prefetchPages";
 
-import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid, FiTag, FiShoppingBag } from "react-icons/fi";
+import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid, FiTag, FiFolder, FiShoppingBag } from "react-icons/fi";
 import { useHasAccess } from "../../shared/hooks/useHasAccess";
 
 import type { IconType } from "react-icons";
@@ -352,15 +352,25 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           label: t("nav.transactions"),
           icon: FiCreditCard,
           // Adding first: it is the thing done most often, and now a page of its own.
+          // The month's calendar of the same records moved under «Ημερολόγιο»,
+          // and the names onto their own entry below (owner, 2026-11-19).
           children: [
             { path: "/transactions/new", label: t("nav.newTransaction"), icon: FiPlusCircle },
             { path: "/transactions", label: t("nav.allTransactions"), icon: FiList },
-            // The same records as a month's calendar, a day's net in each square.
-            { path: "/transactions/calendar", label: t("nav.transactionsCalendar"), icon: FiCalendar },
             // To read only: dense, by day, the month as it happened.
             { path: "/transactions/ledger", label: t("nav.ledger"), icon: FiBookOpen },
-            // The names records are filed by: who was paid, and under what.
-            { path: "/transactions/names", label: t("nav.names"), icon: FiTag },
+          ],
+        },
+        // The names records are filed by: who was paid, and under what — an
+        // entry of its own, a page per kind, rather than two tabs inside
+        // «Συναλλαγές» (owner, 2026-11-19).
+        {
+          path: "/names",
+          label: t("nav.names"),
+          icon: FiTag,
+          children: [
+            { path: "/names/payees", label: t("names.pagePayees"), icon: FiUsers },
+            { path: "/names/categories", label: t("names.pageCategories"), icon: FiFolder },
           ],
         },
         // Money in before money out. Amber rather than red: a late income is
@@ -417,8 +427,17 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
       label: t("nav.groupPlan"),
       items: [
         { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
-        // The month on one screen: what comes in and goes out, day by day.
-        { path: "/calendar", label: t("nav.calendar"), icon: FiGrid },
+        // Two calendars, one entry (owner, 2026-11-19): the month of what comes
+        // in and goes out, and the same month as the records already written.
+        {
+          path: "/calendar",
+          label: t("nav.calendar"),
+          icon: FiGrid,
+          children: [
+            { path: "/calendar", label: t("nav.calendar"), icon: FiGrid },
+            { path: "/calendar/transactions", label: t("nav.transactionsCalendar"), icon: FiCalendar },
+          ],
+        },
         { path: "/goals", label: t("nav.goals"), icon: FiTarget },
       ],
     },

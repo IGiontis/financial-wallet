@@ -1,13 +1,16 @@
 /* Category picker — a filter box over a grid of cards.
-   Sized so the grid never pushes the rest of a modal form off the screen: it
-   scrolls inside itself instead, which is the whole reason it can afford to
-   show icons at all. */
+   The grid scrolls inside itself rather than pushing the rest of a modal form
+   off the screen, which is the whole reason it can afford to show icons at
+   all. It takes its height from the screen, not from a fixed number (owner,
+   2026-11-24: «στις κατηγορίες φαίνονται αρκετά λίγες, δώσε περισσότερο
+   height») — 216px showed barely two rows on a phone. The cap keeps it from
+   eating a tall desktop screen whole. */
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 6px;
-  max-height: 216px;
+  max-height: min(46vh, 340px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-0);
@@ -16,7 +19,11 @@
 @media (min-width: 576px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-    max-height: 240px;
+    /* Lower than the phone's share on purpose: a laptop's dialog carries the
+       same header, rail, search box and footer in a window half as tall, so a
+       bigger grid pushes the dialog's own body into a SECOND scrollbar beside
+       the grid's (owner, 2026-11-24). This is the largest that keeps one. */
+    max-height: min(38vh, 340px);
   }
 }
 
