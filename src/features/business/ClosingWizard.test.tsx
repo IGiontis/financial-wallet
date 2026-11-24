@@ -19,7 +19,12 @@ const TWO_PLACES = [
   { id: "eb", name: "Eurobank", kind: "bank", main: true },
   { id: "rev", name: "Revolut", kind: "bank" },
 ];
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => TWO_PLACES }));
+// `useMoneyAccounts` too: a closing that ends in a loss asks whether the card
+// can carry it (`useSpendCheck`, rule 22). No reading here, so no refusal.
+vi.mock("../accounts/useMoneyAccounts", () => ({
+  useAccountList: () => TWO_PLACES,
+  useMoneyAccounts: () => ({ accounts: TWO_PLACES, latest: undefined, transactions: [], checkIns: [], setCheckIns: vi.fn() }),
+}));
 // The picker stands in as one button for Revolut; its own error shows when the step was tried.
 vi.mock("../accounts/AccountPicker", () => ({
   default: ({ onChoose, invalid }: { onChoose: (id: string) => void; invalid?: boolean }) => (

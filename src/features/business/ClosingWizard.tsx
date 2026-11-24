@@ -21,6 +21,8 @@ import { SavedCheck } from "../transactions/components/SavedCheck";
 import page from "../transactions/components/css/TransactionWizard.module.css";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import AccountPicker from "../accounts/AccountPicker";
+import { SpendNote } from "../accounts/SpendNote";
+import { useSpendCheck } from "../accounts/useSpendCheck";
 import ReviewCard from "../accounts/ReviewCard";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
@@ -158,6 +160,9 @@ export default function ClosingWizard({
   const figures = closingFigures({ incomes, expenses });
   const move = personalMove(figures.profit);
   const written = accounts.length > 0 ? chosenAccount(accounts, account) : undefined;
+  // A closing that ends in a LOSS takes that money out of the card (rule 22);
+  // a profit puts money on it and takes nothing.
+  const spend = useSpendCheck(move?.type === "expense" ? chosenAccount(accounts, account) : undefined, move?.amount ?? 0);
   const accountGap = !!move && accountMissing(accounts, account);
   const dayOk = !!when && !dateError && !!business;
   const ready = dayOk && incomesOk && expensesOk && !accountGap;
@@ -454,6 +459,7 @@ export default function ClosingWizard({
                 <span>{t(Math.round(figures.profit * 100) < 0 ? "business.loss" : "business.profit")}</span>
                 <span className={`${styles.total} ${profitTone(figures.profit, styles)}`}>{signed(figures.profit, format)}</span>
               </div>
+              <SpendNote check={spend} className="mt-2" />
             </>
           )}
 
@@ -550,7 +556,7 @@ export default function ClosingWizard({
       {step === "review" ? (
         <div className="d-flex align-items-center gap-2">
           <UnchangedHint show={nothingChanged} />
-          <Button type="submit" color="primary" disabled={nothingChanged || !ready}>
+          <Button type="submit" color="primary" disabled={nothingChanged || !ready || spend.blocked}>
             {t("common.save")}
           </Button>
         </div>
