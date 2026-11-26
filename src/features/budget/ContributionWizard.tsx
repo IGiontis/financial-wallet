@@ -500,7 +500,7 @@ export default function ContributionWizard({
               {takingAll && (
                 <FormGroup className="mt-3 mb-0">
                   <Label for="contribution-gain" className="small fw-medium">
-                    {t("investments.profitLabel", { currency: displayCurrency })}
+                    {t("investments.profitLabel")}
                   </Label>
                   <MoneyInput id="contribution-gain" min={0} value={gain} onChange={setGain} />
                   <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.profitHint", { amount: format(balance) })}</FormText>

@@ -57,6 +57,7 @@ vi.mock("./useBills", () => ({
   useUnmarkBillPaid: () => page.idle(),
   useUpdateBillPayment: () => page.idle(),
   useSettleOverdue: () => page.idle(),
+  useClearBill: () => page.idle(),
 }));
 vi.mock("../transactions/hooks/useTransactions", () => ({
   useCategories: () => ({ data: [] }),

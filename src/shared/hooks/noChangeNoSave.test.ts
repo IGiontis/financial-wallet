@@ -52,6 +52,7 @@ const NEW_OR_ACTION_ONLY: Record<string, string> = {
   "features/budget/ContributionWizard.tsx": "a new deposit / withdrawal",
   "features/bills/MarkPaidModal.tsx": "a new payment",
   "features/bills/SettleOverdueModal.tsx": "new payments for ticked months",
+  "features/bills/ClearBillModal.tsx": "a new final bill (clearing) for ticked months",
   "features/debts/RepaymentWizard.tsx": "a new repayment",
   "features/debts/ForgiveDebtModal.tsx": "an action on the debt",
   "features/accounts/CheckInModal.tsx": "a new bank reading",

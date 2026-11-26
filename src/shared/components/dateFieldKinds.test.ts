@@ -34,6 +34,7 @@ const KINDS: Record<string, { happened: number; planned: number }> = {
   "features/transactions/components/TransferWizard.tsx": { happened: 1, planned: 0 },
   "features/budget/ContributionWizard.tsx": { happened: 1, planned: 0 }, // deposit, withdrawal, «πλήρωσε για μένα», spent
   "features/bills/MarkPaidModal.tsx": { happened: 1, planned: 0 }, // «Πληρώθηκε»
+  "features/bills/ClearBillModal.tsx": { happened: 1, planned: 0 }, // the day a final bill was paid
   "features/bills/BillDetailModal.tsx": { happened: 1, planned: 0 }, // a payment's correction
   "features/debts/RepaymentWizard.tsx": { happened: 1, planned: 0 },
   "features/debts/DebtCard.tsx": { happened: 1, planned: 0 }, // a repayment's correction
