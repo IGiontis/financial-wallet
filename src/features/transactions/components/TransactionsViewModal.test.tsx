@@ -104,3 +104,30 @@ describe("the expense of a goal a friend paid", () => {
     expect(screen.getByText(/Checking whether it belongs to a debt/)).toBeInTheDocument();
   });
 });
+
+describe("the expense of a final bill", () => {
+  it("adds a box saying it is one, and which months it closed (owner, 2026-11-26)", async () => {
+    const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+    const { billKeys } = await import("../../bills/billCache");
+    const client = new QueryClient();
+    const at = new Date(2026, 9, 15);
+    // 96 € for July – October: the clearing on October, three 0-rows covered by it.
+    const payments = [
+      { id: "clear", userId: "", billId: "water", periodKey: "2026-10", amount: 96, paidDate: at, transactionId: "t", covers: ["c7", "c8", "c9"], createdAt: at },
+      ...["07", "08", "09"].map((m) => ({ id: `c${Number(m)}`, userId: "", billId: "water", periodKey: `2026-${m}`, amount: 0, paidDate: at, coveredBy: "clear", createdAt: at })),
+    ];
+    client.setQueryData(billKeys.all(""), [{ id: "water", payments }]);
+    render(
+      <QueryClientProvider client={client}>
+        <TransactionViewModal transaction={row({ billId: "water", amount: 96 })} categories={[]} formatCurrency={format} onClose={() => {}} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Final bill")).toBeInTheDocument();
+    expect(screen.getByText(/Closes 4 months: Jul 2026 – Oct 2026/)).toBeInTheDocument();
+  });
+
+  it("adds nothing for an ordinary bill payment", () => {
+    render(<TransactionViewModal transaction={row({ billId: "water" })} categories={[]} formatCurrency={format} onClose={() => {}} />);
+    expect(screen.queryByText("Final bill")).toBeNull();
+  });
+});

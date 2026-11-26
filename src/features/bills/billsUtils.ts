@@ -486,10 +486,16 @@ export function averagePaidAmount(payments: BillPayment[], bill: Pick<Bill, "ins
   const count = getInstallmentCount(bill);
   const periods = new Map<string, { sum: number; parts: Set<number> }>();
   for (const p of payments) {
+    // A clearing (`markBillCleared`) is one figure for several periods: read
+    // here as its share of each, so 96 € for three months averages 32 €, not
+    // one 96 € month beside two of nothing. The 0-rows it covered stand for
+    // those other shares and are not counted again (owner, 2026-11-26).
+    if (p.coveredBy) continue;
     const period = periods.get(p.periodKey) ?? { sum: 0, parts: new Set<number>() };
-    period.sum += p.amount;
+    period.sum += perPeriodShare(p);
     period.parts.add(paymentInstallment(p));
     periods.set(p.periodKey, period);
+    for (let i = 0; i < (p.covers?.length ?? 0); i++) periods.set(`${p.periodKey}#covered${i}`, { sum: perPeriodShare(p), parts: new Set(Array.from({ length: count }, (_, k) => k)) });
   }
 
   const recent = [...periods.values()].filter((period) => period.parts.size >= count).slice(0, AVERAGE_WINDOW);
@@ -504,9 +510,18 @@ export function averagePaidAmount(payments: BillPayment[], bill: Pick<Bill, "ins
  * one distinct figure, which callers render as a single amount.
  */
 export function paidAmountRange(payments: BillPayment[]): { min: number; max: number } | undefined {
-  if (payments.length === 0) return undefined;
-  const recent = payments.slice(0, AVERAGE_WINDOW).map((p) => p.amount);
+  // The same reading as the average: a clearing by its share of a period, the
+  // 0-rows it covered not at all — «usually 0–96 €» would say nothing true.
+  const real = payments.filter((p) => !p.coveredBy);
+  if (real.length === 0) return undefined;
+  const recent = real.slice(0, AVERAGE_WINDOW).map(perPeriodShare);
   return { min: Math.min(...recent), max: Math.max(...recent) };
+}
+
+/** What one period cost: the payment itself, or a clearing's equal share of the periods it settled (rounded to the cent). */
+export function perPeriodShare(p: Pick<BillPayment, "amount" | "covers">): number {
+  const periods = 1 + (p.covers?.length ?? 0);
+  return Math.round((p.amount / periods) * 100) / 100;
 }
 
 // ─── Paying ahead ───────────────────────────────────────────────────────────
@@ -1920,4 +1935,29 @@ export function yearAhead(bills: BillWithStatus[], now: Date = new Date(), month
     const totals = periodTotals(breakdown);
     return { start: breakdown.monthStart, total: round2(totals.total), count: totals.totalCount, paid: round2(totals.paid) };
   });
+}
+
+// ─── Clearing bills ─────────────────────────────────────────────────────────
+
+/** One period a clearing can close: its key, the day it fell due, and what it was reckoned at. */
+export interface ClearablePeriod {
+  periodKey: string;
+  date: Date;
+  estimate: number;
+  current: boolean;
+}
+
+/**
+ * The periods a clearing can close, oldest first: everything overdue, and the
+ * current period too when it is still unpaid (a final bill usually runs up to
+ * the day it is issued). Only for a bill paid in one go each period — a bill
+ * split into instalments has no single «period» for one figure to close.
+ */
+export function clearablePeriods(bill: BillWithStatus, now: Date = new Date()): ClearablePeriod[] {
+  if (getInstallmentCount(bill) > 1) return [];
+  const overdue = billOverdue(bill, now).items.map((item) => ({ periodKey: item.periodKey, date: item.date, estimate: item.amount, current: item.periodKey === bill.currentPeriodKey }));
+  const seen = new Set(overdue.map((p) => p.periodKey));
+  const currentOwed = !bill.isPaidThisPeriod && !isPausedOn(bill, now) && !seen.has(bill.currentPeriodKey);
+  const current = currentOwed ? [{ periodKey: bill.currentPeriodKey, date: bill.nextDueDate ?? now, estimate: expectedAmount(bill), current: true }] : [];
+  return [...overdue, ...current];
 }

@@ -213,6 +213,9 @@ side-by-side screenshots.
   never an `Intl.DateTimeFormat` or `toLocaleDateString` of a screen's own.
   Never a typed «€» (the user's money may be $ or £): an input suffix is `currencySymbol` /
   `useCurrencyConverter().symbol`, a figure in a string is `{{amount}}` (`currency.test.ts`).
+  **Every amount field is `MoneyInput`** (`docs/COMPONENTS.md`): the sign in a grey cell at the END of
+  the field, in the currency the figure is typed in — never «(EUR)» in a label, never a form's own
+  currency `InputGroupText` (owner, 2026-11-26).
   Long words in labels wrap. Never truncate a name or a deadline.
 - Reduced motion drops movement, not fades (one exception: the goal tanks' wave,
   `reducedMotion.test.ts`). Every endless animation declares

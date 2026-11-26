@@ -63,6 +63,12 @@
   color: var(--color-text-secondary);
 }
 
+/* The extra per month: the number, its «€» and «/μήνα» — the width it had
+   before the sign, plus the sign's cell. */
+.extraField {
+  max-width: 214px;
+}
+
 .extra {
   display: flex;
   flex-wrap: wrap;

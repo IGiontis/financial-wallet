@@ -21,7 +21,7 @@ import {
 import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO, BillWithStatus, TransactionType } from "../../../shared/types/IndexTypes";
 import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
 import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
-import { billKeys, editPayments, paymentIdFor } from "../../bills/billCache";
+import { billKeys, editPayments, paymentFor, paymentIdFor } from "../../bills/billCache";
 import { sameAsStored } from "../../../shared/utils/sameValues";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -215,7 +215,11 @@ export function useDeleteTransaction() {
     // The payment is looked up in the bills list, which this mutation edits
     // only after the delete has gone through — so it is still there to find.
     onceBy: (tx) => tx.id,
-    mutationFn: ({ id, billId }) => deleteTransaction(userId, id, billId ? { userId, paymentId: paymentIdFor(queryClient, userId, id) } : undefined),
+    mutationFn: ({ id, billId }) => {
+      // A clearing's expense takes the months it settled with it (`markBillCleared`).
+      const payment = billId ? paymentFor(queryClient, userId, id) : undefined;
+      return deleteTransaction(userId, id, billId ? { userId, paymentId: payment?.id, covers: payment?.covers } : undefined);
+    },
 
     onMutate: async ({ id }) => ({ transactions: await editList(queryClient, key, removeWhere<Transaction>((row) => row.id === id)) }),
 
@@ -225,7 +229,10 @@ export function useDeleteTransaction() {
       confirmList(queryClient, key, removeWhere<Transaction>((row) => row.id === id));
       // Deletes wait for a connection, so the bill turns unpaid with the
       // server's answer a moment after the row has gone.
-      if (billId) confirmList(queryClient, billKeys.all(userId), editPayments((payments) => payments.filter((p) => p.transactionId !== id)));
+      if (billId) {
+        const gone = new Set(queryClient.getQueryData<BillWithStatus[]>(billKeys.all(userId))?.flatMap((b) => b.payments).filter((p) => p.transactionId === id).map((p) => p.id) ?? []);
+        confirmList(queryClient, billKeys.all(userId), editPayments((payments) => payments.filter((p) => p.transactionId !== id && !(p.coveredBy && gone.has(p.coveredBy)))));
+      }
     },
   });
 }

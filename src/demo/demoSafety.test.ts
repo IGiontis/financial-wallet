@@ -229,3 +229,61 @@ describe("the demo never reaches Firebase", () => {
     expect(await localGet("sync:demo:transactions")).toBeUndefined();
   });
 });
+
+// A clearing bill («εκκαθαριστικός», owner 2026-11-26): one final figure for
+// several unpaid months, kept as ONE payment with the whole amount on the
+// latest month and the expense, plus a 0-row per other month marked
+// `coveredBy` it. Put through the same in-memory store a visitor uses.
+describe("a clearing bill, in memory", () => {
+  const clear = async (stopFrom?: string) => {
+    const bill = (await data.getBills(uid)).find((b) => b.id === DEMO_IDS.lateBill)!;
+    const ids = { paymentId: data.newDocId("billPayments"), transactionId: data.newDocId("transactions") };
+    const covered = [
+      { id: data.newDocId("billPayments"), periodKey: "2099-01" },
+      { id: data.newDocId("billPayments"), periodKey: "2099-02" },
+    ];
+    await data.markBillCleared(uid, bill, "2099-03", covered, new Date(), 96, ids, undefined, stopFrom);
+    return { bill, ids, covered };
+  };
+  const rowsOf = (billId: string) => Object.entries(memoryCollection("billPayments")).filter(([, p]) => (p as { billId: string }).billId === billId && ["2099-01", "2099-02", "2099-03"].includes((p as { periodKey: string }).periodKey));
+
+  it("writes one expense, one payment carrying it, and a 0-row per other month", async () => {
+    const { bill, ids, covered } = await clear();
+    expect(memoryCollection("transactions")[ids.transactionId]).toMatchObject({ billId: bill.id, amount: 96, type: "expense" });
+    expect(memoryCollection("billPayments")[ids.paymentId]).toMatchObject({ periodKey: "2099-03", amount: 96, transactionId: ids.transactionId, covers: covered.map((c) => c.id) });
+    for (const c of covered) expect(memoryCollection("billPayments")[c.id]).toMatchObject({ periodKey: c.periodKey, amount: 0, coveredBy: ids.paymentId });
+    // Reconciled the other way: the three rows together hold exactly the one expense — nothing counted twice.
+    const sum = rowsOf(bill.id).reduce((total, [, p]) => total + (p as { amount: number }).amount, 0);
+    expect(sum).toBe(memoryCollection("transactions")[ids.transactionId].amount);
+    expect(sdk.calls).toEqual([]);
+  });
+
+  it("stops the bill in the same write when it was the last one", async () => {
+    const { bill } = await clear("2099-03");
+    expect(memoryCollection("bills")[bill.id].pause).toEqual({ from: "2099-03" });
+  });
+
+  it("taken back from the Bills screen, goes with every month it closed", async () => {
+    const { bill, ids } = await clear();
+    // Not told which rows: it reads them off the payment itself.
+    await data.unmarkBillPaid(uid, { id: ids.paymentId, transactionId: ids.transactionId });
+    expect(rowsOf(bill.id)).toEqual([]);
+    expect(memoryCollection("transactions")).not.toHaveProperty(ids.transactionId);
+    expect(sdk.calls).toEqual([]);
+  });
+
+  it("its expense deleted from the Transactions screen takes the months with it", async () => {
+    const { bill, ids } = await clear();
+    await data.deleteTransaction(uid, ids.transactionId, { userId: uid });
+    expect(rowsOf(bill.id)).toEqual([]);
+    expect(memoryCollection("transactions")).not.toHaveProperty(ids.transactionId);
+  });
+
+  it("its expense corrected from the Transactions screen corrects only the clearing, never the 0-rows", async () => {
+    const { ids, covered } = await clear();
+    await data.updateTransaction(ids.transactionId, { amount: 101 }, { userId: uid, paymentId: ids.paymentId });
+    expect(memoryCollection("billPayments")[ids.paymentId].amount).toBe(101);
+    for (const c of covered) expect(memoryCollection("billPayments")[c.id].amount).toBe(0);
+    expect(memoryCollection("transactions")[ids.transactionId].amount).toBe(101);
+  });
+});

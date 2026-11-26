@@ -201,8 +201,21 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   (field carries `aria-required`). Never a typed «*». Styles: `src/shared/components/css/RequiredMark.module.css`.
 - `src/shared/components/SearchInput.tsx` — the one search field (icon, clear ×): `value`, `onChange`,
   `size="sm"`, `block`. Styles: `src/shared/components/css/SearchInput.module.css`.
-- Money input: a Reactstrap `<Input type="number">` in the display currency; convert to base with
-  `convertToBase` from `useCurrencyConverter` (reference: `AddTransactionModal`).
+- `src/shared/components/MoneyInput.tsx` — `MoneyInput`: EVERY box an amount of money is typed into
+  (owner, 2026-11-26). An `InputGroup`: the number, and at its END a grey cell with the currency's SIGN
+  («€», «$», «£»; the code on hover). **`currency` = the currency the figure is TYPED in**, not the one on
+  screen: leave it out for the display currency (then convert with `convertToBase`, reference
+  `AddTransactionModal`); pass `currency={baseCurrency}` where the form stores what is typed as it is
+  (bank readings, debts, transfers, goals' target, planner lines). `onChange` hands back the typed TEXT —
+  a Formik number field stores `v === "" ? "" : Number(v)`, as Formik's own `handleChange` did. A
+  `FormFeedback` (or an extra cell such as «από 500 €» / «/μήνα») goes in as `children`, so it stays a
+  sibling of the input. `min` (0.01; `0` where zero is allowed; `null` for none), `step`, `type="text"` for
+  a field read with `parseAmount` («1.234,56»; no min/step, no autofill), `size="sm"`, `ariaLabel` when no
+  `<Label for>` names it, `onFocus`, `className` (the group) / `inputClassName` / `inputStyle` (the input).
+  **Never a currency in a label («Ποσό (EUR)» broke onto two lines on a phone), never a hand-made currency
+  `InputGroupText`** — `MoneyInput.test.tsx` scans the `.tsx` files for both. Not yet on it: the compact
+  grids `GoalPartsEditor` (from/to columns 4.5rem wide) and the inline payment edit in `BillDetailModal`
+  (108px), and `bills/MarkPaidModal` (being rebuilt). Styles: `src/shared/css/MoneyInput.module.css`.
 - `src/shared/utils/currency.ts` — THE currency sign: `currencySymbol(code)` → «€» / «$» / «£» for an input's
   suffix or a decorative money sign (`useCurrencyConverter().symbol` = the display currency's);
   `currencyLabel` (Settings picker); `MONEY_MARKS` (strip signs/codes before parsing, used by `parseAmount`).

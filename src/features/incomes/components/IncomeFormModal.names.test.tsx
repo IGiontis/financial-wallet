@@ -71,10 +71,12 @@ describe("the income wizard's required fields", () => {
     await next();
 
     // «Does it change?» starts on «Ναι» (owner, 2026-11-12): the field is the estimate until «No».
-    expect(markedLabels(dialog)).toEqual(["Estimated amount (EUR)", "Does the amount change every time?"]);
+    // The currency is the field's end cell (`MoneyInput`), never a «(EUR)» in the label.
+    expect(markedLabels(dialog)).toEqual(["Estimated amount", "Does the amount change every time?"]);
     expect(screen.getByLabelText(/^Estimated amount/)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^Estimated amount/).nextElementSibling).toHaveTextContent("€");
     await userEvent.click(screen.getByRole("radio", { name: /^No/ }));
-    expect(markedLabels(dialog)).toEqual(["Amount (EUR)", "Does the amount change every time?"]);
+    expect(markedLabels(dialog)).toEqual(["Amount", "Does the amount change every time?"]);
     await userEvent.type(screen.getByLabelText(/^Amount/), "150");
     await next();
 

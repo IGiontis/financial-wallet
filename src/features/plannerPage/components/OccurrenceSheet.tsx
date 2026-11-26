@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, InputGroup, InputGroupText, ListGroup, ListGroupItem, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, ListGroup, ListGroupItem, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCalendar, FiCheck, FiEdit3, FiRotateCcw, FiSkipForward } from "react-icons/fi";
 
@@ -10,6 +10,7 @@ import { daysLate, type OccurrenceOverride, type ResolvedOccurrence } from "../p
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 
 /**
  * One salary, one instalment, one rent — and what actually happened to it.
@@ -122,10 +123,7 @@ export default function OccurrenceSheet({
               </button>
               {editing === "amount" && (
                 <div className="d-flex gap-2 mt-2">
-                  <InputGroup>
-                    <Input type="text" inputMode="decimal" autoComplete="off" placeholder={String(expectedAmount).replace(".", ",")} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ fontSize: 16 }} aria-label={t("planner.occOtherAmount")} />
-                    <InputGroupText>{baseCurrency}</InputGroupText>
-                  </InputGroup>
+                  <MoneyInput type="text" currency={baseCurrency} placeholder={String(expectedAmount).replace(".", ",")} value={amount} onChange={setAmount} inputStyle={{ fontSize: 16 }} ariaLabel={t("planner.occOtherAmount")} />
                   <Button color="primary" disabled={parsedAmount === undefined || parsedAmount <= 0 || sameAmount} onClick={() => parsedAmount && onSave(keep({ amount: parsedAmount }))}>
                     {t("common.save")}
                   </Button>

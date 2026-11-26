@@ -36,6 +36,7 @@ import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { LockNote } from "./LockNote";
 import type { LockState } from "../hooks/useRecordLocks";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { sameValues } from "../../../shared/utils/sameValues";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
@@ -436,19 +437,23 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               <Col xs={6}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
-                    {t("common.amount")} ({displayCurrency})
+                    {t("common.amount")}
                     <RequiredMark />
                     {formik.values.showFuelDetails && <span style={{ fontSize: "var(--fs-caption)", color: "var(--bs-primary)", marginLeft: 6 }}>{t("transactions.autoCalculated")}</span>}
                   </Label>
-                  <Input
-                    type="number" name="amount" min={0.01} step={0.01} placeholder="0.00" aria-required
-                    value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
+                  {/* Stored as Formik's handleChange stores a number box: "" or a number. */}
+                  <MoneyInput
+                    name="amount" required
+                    value={formik.values.amount}
+                    onChange={(v) => formik.setFieldValue("amount", v === "" ? "" : Number(v))}
+                    onBlur={() => formik.setFieldTouched("amount", true)}
                     readOnly={formik.values.showFuelDetails}
                     disabled={!!covered}
-                    style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
+                    inputStyle={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                     invalid={!!(formik.touched.amount && formik.errors.amount) || spend.blocked}
-                  />
-                  <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                  >
+                    <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                  </MoneyInput>
                   {/* The card must carry the CHANGE, not the whole amount over
                       again: what this record already takes from it is given
                       back first (rule 22, `already`). */}
@@ -534,7 +539,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 quantity={formik.values.quantity} odometer={formik.values.odometer} place={formik.values.place}
                 errors={{ fuelType: formik.errors.fuelType, pricePerUnit: formik.errors.pricePerUnit as string | undefined, quantity: formik.errors.quantity as string | undefined, odometer: formik.errors.odometer as string | undefined, place: formik.errors.place }}
                 touched={{ fuelType: formik.touched.fuelType, pricePerUnit: formik.touched.pricePerUnit, quantity: formik.touched.quantity, odometer: formik.touched.odometer, place: formik.touched.place }}
-                setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched} displayCurrency={displayCurrency}
+                setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched}
               />
             )}
 

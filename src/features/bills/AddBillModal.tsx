@@ -25,6 +25,7 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { billKeys } from "./billCache";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
 import { sameValues } from "../../shared/utils/sameValues";
@@ -474,32 +475,31 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
 
           {step === "amount" && (
             <>
-              {/* The amount and its category on one row. */}
+              {/* The amount and its category on one row, half each: at 320px a
+                  5/12 column broke «Εκτιμώμενο ποσό» onto two lines and left
+                  the number beside its «€» cell too little room. */}
               <Row className="g-2 mb-3">
-                <Col xs={5}>
+                <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label className="small fw-medium" for="bill-amount">
-                      {formik.values.isVariableAmount ? t("bills.estimatedAmount") : t("common.amount")} ({displayCurrency})
+                      {formik.values.isVariableAmount ? t("bills.estimatedAmount") : t("common.amount")}
                       <RequiredMark />
                     </Label>
-                    <Input
+                    {/* Stored as Formik's handleChange stores a number box: "" or a number. */}
+                    <MoneyInput
                       id="bill-amount"
-                      aria-required
-                      type="number"
+                      required
                       name="amount"
-                      min={0.01}
-                      step={0.01}
-                      inputMode="decimal"
-                      placeholder="0.00"
                       value={formik.values.amount}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
+                      onChange={(v) => formik.setFieldValue("amount", v === "" ? "" : Number(v))}
+                      onBlur={() => formik.setFieldTouched("amount", true)}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                    >
+                      <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                    </MoneyInput>
                   </FormGroup>
                 </Col>
-                <Col xs={7}>
+                <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label className="small fw-medium" for="bill-category">
                       {t("common.category")}

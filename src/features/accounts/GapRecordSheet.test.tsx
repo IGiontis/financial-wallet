@@ -12,6 +12,8 @@ const spies = vi.hoisted(() => ({ save: vi.fn(async () => {}) }));
 vi.mock("../debts/useDebts", () => ({ useDebts: () => ({ data: [] }) }));
 vi.mock("./useGapRecords", () => ({ useSaveGapRecords: () => ({ mutateAsync: spies.save, isPending: false }), gapNewId: () => Math.random().toString(36).slice(2) }));
 vi.mock("../../shared/hooks/useAuth", () => ({ useAuth: () => ({ currentUser: { uid: "u" } }) }));
+// The amount field (`MoneyInput`) asks the converter for the display currency; the sheet itself is handed the base one.
+vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", displayCurrency: "EUR" }) }));
 vi.mock("../../shared/components/DateField", () => ({
   DateField: ({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) => <input id={id} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));

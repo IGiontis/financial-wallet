@@ -190,6 +190,8 @@ export interface BillPaymentLink {
   userId: string;
   /** Known from the bills already on screen; looked up by `transactionId` when not. */
   paymentId?: string;
+  /** A clearing's covered rows, from the same copy (`BillPayment.covers`). */
+  covers?: string[];
 }
 
 const billPaymentIdsFor = async ({ userId, paymentId }: BillPaymentLink, transactionId: string): Promise<string[]> => {
@@ -199,6 +201,30 @@ const billPaymentIdsFor = async ({ userId, paymentId }: BillPaymentLink, transac
   if (paymentId) return (await stillThere("billPayments", paymentId)) ? [paymentId] : [];
   const snap = await getDocs(query(collection(db, "billPayments"), where("userId", "==", userId), where("transactionId", "==", transactionId)));
   return snap.docs.map((d) => d.id);
+};
+
+/** The covered rows of a clearing that are still there — never a delete of a missing one (it fails the batch). */
+const coveredStillThere = async (ids: string[] | undefined): Promise<string[]> => {
+  if (!ids?.length) return [];
+  const present = await Promise.all(ids.map(async (id) => ((await stillThere("billPayments", id)) ? id : null)));
+  return present.filter((id): id is string => id !== null);
+};
+
+/**
+ * The rows a clearing settled, for the payments about to be deleted with its
+ * expense — taken from the device's copy when it has one, else read off the
+ * payments themselves. Only those still there (`coveredStillThere`).
+ */
+const coveredRowsFor = async (link: BillPaymentLink, paymentIds: string[]): Promise<string[]> => {
+  if (link.covers) return coveredStillThere(link.covers);
+  const lists = await Promise.all(
+    paymentIds.map(async (id) => {
+      const snap = await getDoc(doc(db, "billPayments", id));
+      const covers = snap.exists() ? (snap.data().covers as string[] | undefined) : undefined;
+      return coveredStillThere(covers);
+    }),
+  );
+  return lists.flat();
 };
 
 export const updateTransaction = async (transactionId: string, data: UpdateTransactionDTO, billPayment?: BillPaymentLink) => {
@@ -242,11 +268,14 @@ export const deleteTransaction = async (userId: string, transactionId: string, b
   }
 
   const paymentIds = await billPaymentIdsFor(billPayment, transactionId);
+  // A clearing's expense deleted from the ledger takes the months it settled
+  // with it, or they would stay «paid» with no money behind them.
+  const covered = await coveredRowsFor(billPayment, paymentIds);
   const batch = writeBatch(db);
   batch.delete(doc(db, "transactions", transactionId));
-  for (const id of paymentIds) batch.delete(doc(db, "billPayments", id));
+  for (const id of [...paymentIds, ...covered]) batch.delete(doc(db, "billPayments", id));
   await batch.commit();
-  await noteDeletions(userId, { transactions: [transactionId], billPayments: paymentIds });
+  await noteDeletions(userId, { transactions: [transactionId], billPayments: [...paymentIds, ...covered] });
 };
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
@@ -796,6 +825,61 @@ export const markBillPaid = async (
   return { paymentId: paymentRef.id, transactionId: transactionRef.id };
 };
 
+/**
+ * A CLEARING bill («εκκαθαριστικός», owner 2026-11-26): several unpaid periods
+ * settled by ONE final figure and ONE payment from a card — water left for
+ * three months, then a single bill for what it all came to.
+ *
+ * His choice of how it is kept: the whole amount lives on ONE payment, on the
+ * latest of the periods, with the one expense; every other period gets a row
+ * of its own at 0 marked `coveredBy` it, so each reads as settled and nothing
+ * is counted twice. That keeps one expense ↔ one payment, so correcting or
+ * deleting the expense from the Transactions screen stays as safe as it is for
+ * any bill (spreading the figure over the months would have made every such
+ * edit re-split it). The clearing lists the rows it covers in `covers`, which
+ * is how deleting it takes them along.
+ *
+ * `stopFrom` ("YYYY-MM"): the bill was a final one — it is stopped from that
+ * month, in the same batch, as a pause with no return (`Bill.pause`), so its
+ * history stays and nothing more is asked of it.
+ */
+export const markBillCleared = async (
+  userId: string,
+  bill: { id: string; name: string; categoryId: string },
+  /** The period the clearing is filed under — the latest one it settles. */
+  periodKey: string,
+  /** The OTHER periods it settles, each with the id its 0-row is written under. */
+  covered: { id: string; periodKey: string }[],
+  paidDate: Date,
+  amount: number,
+  ids: { paymentId: string; transactionId: string },
+  accountId?: string,
+  stopFrom?: string,
+) => {
+  refuseFutureDates([paidDate]);
+  if (!(amount > 0)) throw new Error("markBillCleared: the amount must be above 0");
+  const batch = writeBatch(db);
+
+  batch.set(doc(db, "transactions", ids.transactionId), {
+    ...clean({ userId, amount, type: "expense", categoryId: bill.categoryId, date: paidDate, description: bill.name, billId: bill.id, accountId }),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  const clearing: CreateBillPaymentDTO = { billId: bill.id, periodKey, amount, paidDate, transactionId: ids.transactionId, covers: covered.map((c) => c.id) };
+  batch.set(doc(db, "billPayments", ids.paymentId), { ...clean({ ...clearing, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+
+  for (const c of covered) {
+    const row: CreateBillPaymentDTO = { billId: bill.id, periodKey: c.periodKey, amount: 0, paidDate, coveredBy: ids.paymentId };
+    batch.set(doc(db, "billPayments", c.id), { ...clean({ ...row, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+
+  if (stopFrom) batch.update(doc(db, "bills", bill.id), { pause: { from: stopFrom }, updatedAt: serverTimestamp() });
+
+  await batch.commit();
+  return ids;
+};
+
 // Undoes a payment: removes both the payment record and its expense transaction.
 /**
  * Corrects an existing payment — the amount, the date, or both.
@@ -853,17 +937,24 @@ export const markBillPeriodsSettled = async (
   await batch.commit();
 };
 
-export const unmarkBillPaid = async (userId: string, payment: { id: string; transactionId?: string }) => {
+export const unmarkBillPaid = async (userId: string, payment: { id: string; transactionId?: string; covers?: string[] }) => {
   // The expense may be gone already — deleted from the ledger before deleting it
   // took its payment with it. Naming it anyway, the rules refuse the delete and
   // the whole batch with it: the payment came back with an error toast.
   const expenseId = payment.transactionId && (await stillThere("transactions", payment.transactionId)) ? payment.transactionId : undefined;
+  // A clearing takes the periods it settled with it — the same check, row by
+  // row, since another device may have deleted one already (`markBillCleared`).
+  // Not told which: one read of the payment says, before it goes.
+  const covers = payment.covers ?? (await getDoc(doc(db, "billPayments", payment.id)).then((snap) => (snap.exists() ? (snap.data().covers as string[] | undefined) : undefined)));
+  const covered = await coveredStillThere(covers);
   const batch = writeBatch(db);
   if (expenseId) batch.delete(doc(db, "transactions", expenseId));
   batch.delete(doc(db, "billPayments", payment.id));
+  for (const id of covered) batch.delete(doc(db, "billPayments", id));
   await batch.commit();
-  await noteDeletions(userId, { billPayments: [payment.id], transactions: expenseId ? [expenseId] : [] });
+  await noteDeletions(userId, { billPayments: [payment.id, ...covered], transactions: expenseId ? [expenseId] : [] });
 };
+
 
 /**
  * Whether a document a batch is about to delete or update is still there; one

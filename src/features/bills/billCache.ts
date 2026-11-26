@@ -42,8 +42,19 @@ export const editBills =
 
 /** The payment recorded with a bill's expense, if the bills on screen know it. */
 export function paymentIdFor(queryClient: QueryClient, userId: string, transactionId: string): string | undefined {
+  return paymentFor(queryClient, userId, transactionId)?.id;
+}
+
+/** The whole payment behind an expense — a clearing's `covers` with it — if the bills on screen know it. */
+export function paymentFor(queryClient: QueryClient, userId: string, transactionId: string): BillPayment | undefined {
   return queryClient
     .getQueryData<BillWithStatus[]>(billKeys.all(userId))
     ?.flatMap((b) => b.payments)
-    .find((p) => p.transactionId === transactionId)?.id;
+    .find((p) => p.transactionId === transactionId);
 }
+
+/**
+ * A clearing gone takes the periods it settled with it: its own row and every
+ * row `coveredBy` it (`markBillCleared`). For any other payment, just that one.
+ */
+export const withoutPayment = (paymentIdToGo: string) => (payments: BillPayment[]) => payments.filter((p) => p.id !== paymentIdToGo && p.coveredBy !== paymentIdToGo);

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "react-toastify";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
-import { Alert, Badge, Button, Card, CardBody, Col, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
+import { Alert, Badge, Button, Card, CardBody, Col, Input, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiRepeat, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
 
@@ -47,6 +47,7 @@ import TransferWizard from "../transactions/components/TransferWizard";
 import { oneRowPerTransfer } from "../transactions/transfers";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { PageHeader } from "../../shared/components/PageHeader";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 
 const HISTORY_SHOWN = 6;
 
@@ -651,19 +652,15 @@ function Setup({ baseCurrency, onSave }: { baseCurrency: string; onSave: (rows: 
                   maxLength={40}
                   style={{ fontSize: 16, minWidth: 0 }}
                 />
-                <InputGroup className={styles.setupAmount}>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    placeholder="0,00"
-                    aria-label={t("accounts.holdsNow")}
-                    value={row.amount}
-                    invalid={touched && isFilled && parseAmount(row.amount) === undefined}
-                    onChange={(e) => update(row.key, { amount: e.target.value })}
-                  />
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                </InputGroup>
+                <MoneyInput
+                  className={styles.setupAmount}
+                  type="text"
+                  currency={baseCurrency}
+                  ariaLabel={t("accounts.holdsNow")}
+                  value={row.amount}
+                  invalid={touched && isFilled && parseAmount(row.amount) === undefined}
+                  onChange={(amount) => update(row.key, { amount })}
+                />
               </div>
               {rows.length > 1 && (
                 <Button color="link" className="p-1 text-body-secondary flex-shrink-0" aria-label={t("accounts.removeRow")} onClick={() => setRows((all) => all.filter((r) => r.key !== row.key))}>

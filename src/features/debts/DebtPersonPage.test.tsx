@@ -382,7 +382,7 @@ describe("the rest of the loan, on the one page", () => {
     const form = screen.getAllByRole("dialog").find((d) => within(d).queryByDisplayValue("March rent"))!;
     // The amount is on the money step, after the card.
     await userEvent.click(within(form).getByRole("button", { name: /^2\s*Money/ }));
-    expect(within(form).getByPlaceholderText("0")).toHaveValue(500);
+    expect(within(form).getByLabelText(/^Amount/)).toHaveValue(500);
   });
 
   it("will not delete a loan offline", async () => {

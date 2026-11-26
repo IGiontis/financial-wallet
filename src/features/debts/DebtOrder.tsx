@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Input, InputGroup, InputGroupText } from "reactstrap";
+import { InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { currentRate, isFloating, payoffOrder, payoffSaving } from "./debtsUtils";
 import styles from "./css/DebtOrder.module.css";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
+import { MoneyInput } from "../../shared/components/MoneyInput";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 /**
  * «Σε ποιο δάνειο να ρίξεις πρώτα» — the dearest first.
@@ -15,6 +17,7 @@ import type { DebtWithStatus } from "../../shared/types/IndexTypes";
  */
 export function DebtOrder({ debts, formatCurrency }: { debts: DebtWithStatus[]; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
+  const { baseCurrency } = useCurrencyConverter();
   const [extra, setExtra] = useState("");
 
   const charged = payoffOrder(debts);
@@ -41,10 +44,10 @@ export function DebtOrder({ debts, formatCurrency }: { debts: DebtWithStatus[]; 
 
       <div className={styles.extra}>
         <span className={styles.extraLabel}>{t("debtOrder.extra")}</span>
-        <InputGroup size="sm" style={{ maxWidth: 170 }}>
-          <Input type="number" min={0} step="10" inputMode="decimal" value={extra} onChange={(event) => setExtra(event.target.value)} placeholder="100" aria-label={t("debtOrder.extra")} />
+        {/* The debts' figures are in the base currency, and so is what is added to them. */}
+        <MoneyInput size="sm" className={styles.extraField} min={0} step={10} currency={baseCurrency} value={extra} onChange={setExtra} placeholder="100" ariaLabel={t("debtOrder.extra")}>
           <InputGroupText>{t("debts.perMonthSuffix")}</InputGroupText>
-        </InputGroup>
+        </MoneyInput>
       </div>
 
       <p className={saving && saving.monthsSaved > 0 ? styles.win : styles.quiet}>

@@ -13,7 +13,7 @@ import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
-import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useSettleOverdue, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
+import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useSettleOverdue, useClearBill, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
   arrears,
   billMonthStrip,
@@ -70,6 +70,7 @@ import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
 import SettleOverdueModal from "./SettleOverdueModal";
+import ClearBillModal from "./ClearBillModal";
 import ActiveBillsModal from "./ActiveBillsModal";
 import RunwaySheet from "./RunwaySheet";
 import { dayTone, type DayToneInput } from "../calendar/dayTone";
@@ -1139,6 +1140,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const unmarkPaid = useUnmarkBillPaid();
   const updatePayment = useUpdateBillPayment();
   const settleOverdue = useSettleOverdue();
+  const clearBill = useClearBill();
 
   const [showModal, setShowModal] = useState(false);
   const [editBill, setEditBill] = useState<Bill | null>(null);
@@ -1153,6 +1155,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const [payingInstallment, setPayingInstallment] = useState<number | undefined>();
   // The bill whose overdue periods are being marked paid without a transaction.
   const [settlingBill, setSettlingBill] = useState<BillWithStatus | null>(null);
+  // The bill a final, clearing figure is being recorded for (`ClearBillModal`).
+  const [clearingBill, setClearingBill] = useState<BillWithStatus | null>(null);
   // Which month's breakdown is open, if any.
   // An offset in months from today: 0 is this one, 1 the next, and the year
   // view can ask for any of the twelve.
@@ -1282,6 +1286,16 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     void saveWithoutWaiting(markPaid, { bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex, accountId }, () => toast.error(t("bills.markPaidFailed")), [["bills", payingBill.id]]);
     celebrateSave({ collection: "bills", id: payingBill.id });
     setPayingBill(null);
+  };
+
+  // A clearing bill: shown at once, written in the background like any payment.
+  const handleConfirmClear = (vars: { periodKeys: string[]; amount: number; paidDate: Date; accountId?: string; stopFrom?: string }) => {
+    if (!clearingBill) return;
+    const bill = clearingBill;
+    void saveWithoutWaiting(clearBill, { bill, ...vars }, () => toast.error(t("bills.clear.failed")), [["bills", bill.id]]);
+    celebrateSave({ collection: "bills", id: bill.id });
+    toast.success(t("bills.clear.done", { name: bill.name, amount: formatCurrency(vars.amount), count: vars.periodKeys.length }));
+    setClearingBill(null);
   };
 
   const handleUndoPayment = (bill: BillWithStatus) => {
@@ -1474,10 +1488,13 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
 
                 {/* «Σύνοψη»: the twelve months to read, and on a phone the year under them. */}
                 {view === "overview" && (
-                  <>
+                  // One column of cards with the page's own gap between them: on a
+                  // phone the year used to sit flush against «Οι επόμενοι 12
+                  // μήνες», 0px apart (owner, 2026-11-26).
+                  <div className="d-flex flex-column gap-3">
                     <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                     {compact && <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />}
-                  </>
+                  </div>
                 )}
 
                 {/* Views on the left, density on the right (stacked on a phone), both
@@ -1666,6 +1683,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
             setDetailBill(null);
             setSettlingBill(b);
           }}
+          onClear={(b) => {
+            setDetailBill(null);
+            setClearingBill(b);
+          }}
           onEdit={(b) => {
             setDetailBill(null);
             openEdit(b);
@@ -1702,8 +1723,16 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           presetInstallmentIndex={payingInstallment}
           onClose={() => setPayingBill(null)}
           onConfirm={handleConfirmPaid}
+          onClearing={() => {
+            // Hand-off, never two dialogs at once.
+            const b = payingBill;
+            setPayingBill(null);
+            setClearingBill(b);
+          }}
         />
       )}
+
+      {clearingBill && <ClearBillModal bill={clearingBill} onClose={() => setClearingBill(null)} onConfirm={handleConfirmClear} />}
 
       {/* `!== null`, not truthiness: this period is month 0. */}
       {breakdownMonth !== null && (

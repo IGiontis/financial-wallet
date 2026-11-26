@@ -18,6 +18,9 @@ vi.mock("../../../shared/components/DateField", () => ({
   ),
 }));
 
+// The amount field (`MoneyInput`) names the currency it is typed in — the base one.
+vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", displayCurrency: "EUR" }) }));
+
 const fmt = (n: number) => `€${n.toFixed(2)}`;
 const onSave = vi.fn();
 const onDelete = vi.fn();

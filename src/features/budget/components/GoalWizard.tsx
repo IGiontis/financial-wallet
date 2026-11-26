@@ -10,6 +10,8 @@ import { PlanFromField } from "./PlanFromField";
 import type { useGoalPartsField } from "./useGoalPartsField";
 import wiz from "../../../shared/css/Wizard.module.css";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { parseISODay } from "../../../shared/utils/dates";
 import { firstGrapheme } from "../../../shared/utils/categoryNames";
 import { iconProblem } from "../../../shared/utils/iconText";
@@ -42,6 +44,7 @@ const invalid = (form: GoalFormApi, k: keyof GoalFieldValues) => !!(form.touched
  */
 export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency }: { form: GoalFormApi; partsField: PartsField; withDeadline: boolean; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
+  const { baseCurrency } = useCurrencyConverter();
   const { values } = form;
   return (
     <>
@@ -70,8 +73,22 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
                 {t("goals.targetAmount")}
                 <RequiredMark />
               </Label>
-              <Input id="goal-target" aria-required type="number" name="targetAmount" min={1} step={1} placeholder="0" value={values.targetAmount} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "targetAmount")} />
-              <FormFeedback>{msg(form.errors.targetAmount, t)}</FormFeedback>
+              {/* A goal is kept in the base currency, as typed; stored as Formik's handleChange stores a number box: "" or a number. */}
+              <MoneyInput
+                id="goal-target"
+                required
+                name="targetAmount"
+                min={1}
+                step={1}
+                placeholder="0"
+                currency={baseCurrency}
+                value={values.targetAmount}
+                onChange={(v) => form.setFieldValue("targetAmount", v === "" ? "" : Number(v))}
+                onBlur={() => form.setFieldTouched("targetAmount", true)}
+                invalid={invalid(form, "targetAmount")}
+              >
+                <FormFeedback>{msg(form.errors.targetAmount, t)}</FormFeedback>
+              </MoneyInput>
             </FormGroup>
           </Col>
         )}

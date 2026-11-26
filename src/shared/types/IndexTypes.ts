@@ -600,6 +600,20 @@ export interface BillPayment {
   amount: number;
   paidDate: Date;
   transactionId?: string; // the mirrored expense transaction
+  /**
+   * A CLEARING bill («εκκαθαριστικός», owner 2026-11-26): this payment settled
+   * several periods with one figure — water left for three months, then one
+   * final bill. It carries the whole amount and the one expense; these are the
+   * ids of the other periods' rows it settled, each with `coveredBy` set and
+   * an amount of 0. Deleting this payment takes them with it.
+   */
+  covers?: string[];
+  /**
+   * Settled by a clearing bill — the id of that payment. Such a row has
+   * amount 0 and no expense: the money left once, in the clearing. It keeps
+   * the period settled, and is left out of averages (see `averagePaidAmount`).
+   */
+  coveredBy?: string;
   createdAt: Date;
 }
 
@@ -610,6 +624,8 @@ export interface CreateBillPaymentDTO {
   amount: number;
   paidDate: Date;
   transactionId?: string;
+  covers?: string[];
+  coveredBy?: string;
 }
 
 export interface BillWithStatus extends Bill {

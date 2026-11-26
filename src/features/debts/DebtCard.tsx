@@ -26,6 +26,8 @@ import { toast } from "react-toastify";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
 import { asNumber } from "../../shared/utils/sameValues";
+import { MoneyInput } from "../../shared/components/MoneyInput";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import type { Density } from "../../shared/hooks/useDensity";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
@@ -41,6 +43,7 @@ const today = () => toISODay(new Date());
  */
 function PayMore({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
+  const { baseCurrency } = useCurrencyConverter();
   const [extra, setExtra] = useState("");
 
   const amount = parseFloat(extra);
@@ -49,10 +52,10 @@ function PayMore({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrenc
   return (
     <div className={styles.payMore}>
       <div className={styles.payMoreHead}>{t("debts.payMoreTitle")}</div>
-      <InputGroup size="sm" style={{ maxWidth: 190 }}>
-        <Input type="number" min={0} step="10" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="100" aria-label={t("debts.payMoreTitle")} />
+      {/* The debt's own figures are in the base currency, and so is what is added to them. */}
+      <MoneyInput size="sm" className={styles.payMoreField} min={0} step={10} currency={baseCurrency} value={extra} onChange={setExtra} placeholder="100" ariaLabel={t("debts.payMoreTitle")}>
         <InputGroupText>{t("debts.perMonthSuffix")}</InputGroupText>
-      </InputGroup>
+      </MoneyInput>
 
       {saving === undefined ? (
         <div className={styles.payMoreIdle}>{t("debts.payMorePrompt")}</div>
@@ -238,6 +241,7 @@ function PaymentPanel({
   onDelete?: () => void;
 }) {
   const { t } = useTranslation();
+  const { baseCurrency } = useCurrencyConverter();
   const deleteGuard = useOfflineGuard("delete");
   const dateId = useId();
   const value = parseFloat(amount);
@@ -260,19 +264,7 @@ function PaymentPanel({
       </div>
       {/* Two fields to a row: at 375px a third squeezes the amount out of sight. */}
       <div className={styles.paymentFields}>
-        <InputGroup size="sm">
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            inputMode="decimal"
-            value={amount}
-            invalid={amount !== "" && !amountValid}
-            onChange={(e) => onAmount(e.target.value)}
-            aria-label={t("common.amount")}
-            aria-required
-          />
-        </InputGroup>
+        <MoneyInput size="sm" min={0} currency={baseCurrency} value={amount} invalid={amount !== "" && !amountValid} onChange={onAmount} ariaLabel={t("common.amount")} required />
         {/* The app's own calendar, like every other date in it — not the
             browser's, which opens from a small icon and looks different on
             every phone. */}

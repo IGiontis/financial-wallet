@@ -411,6 +411,18 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
   (`markBillPaid`, `firestore.ts:608`; hook `useMarkBillPaid`, `useBills.ts:163`).
 - Settled outside the app: `markBillPeriodsSettled` — payments only, no expense, bulk, online
   only (`firestore.ts:694`).
+- **A clearing bill** («εκκαθαριστικός», owner 2026-11-26): ONE final figure for several unpaid
+  periods. `markBillCleared` writes, in one batch, the expense, ONE payment with the whole amount on
+  the LATEST period (`covers` = the other rows' ids), a 0-row per other period (`coveredBy` = the
+  clearing) and, for a final bill, `pause: { from: <this month> }`. One expense ↔ one payment, so an
+  edit of the expense from Transactions changes only the clearing row (never the 0-rows). Undo
+  (`unmarkBillPaid`) and deleting the expense (`deleteTransaction`) take the covered rows too —
+  from the device's copy (`covers`) or read off the payment, each `stillThere`. Averages and the
+  «usually» range read a clearing as its equal share per period and skip the 0-rows
+  (`perPeriodShare`, `averagePaidAmount`, `paidAmountRange`). Hook `useClearBill`, form
+  `ClearBillModal`, offered from the bill sheet and from the pay form when 2+ months are owed;
+  not for bills split into instalments (`clearablePeriods`). Tests: `bills/clearing.test.ts`,
+  `bills/ClearBillModal.test.tsx`, `demo/demoSafety.test.ts` («a clearing bill, in memory»).
 - Edit from Bills: `updateBillPayment` — payment + expense (only if `stillThere`) in one
   batch. Edit from Transactions: `updateTransaction` with a `BillPaymentLink` updates the
   payment's amount/paidDate in the same batch (`firestore.ts:168`).

@@ -58,6 +58,7 @@ only when the same brief has been written three times.
   decides → `DECISIONS`, dated, with the why.
 - `src/test/docsMap.test.ts` fails when a shared file, a collection or a route is missing from
   the map. Fix the map, never the test.
+- **Docs hold the CURRENT truth, not the history.** A new decision on a topic REPLACES the old one in the same place (never a second entry beside it); the replaced text moves to `docs/archive/DECISIONS_HISTORY.md`, which agents do not read by default. Every decision carries a topic key, e.g. `[button:save]`, and exactly one ACTIVE entry per key (`docs.decisions.test.ts` fails on two). Same for `.claude/rules/ui.md`: one rule per topic, edited in place.
 - If the map and the code disagree, the code is the truth — fix the map, and tell the owner
   if it looks like a bug.
 

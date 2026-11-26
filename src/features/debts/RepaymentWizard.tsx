@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
@@ -19,6 +19,8 @@ import wiz from "../../shared/css/Wizard.module.css";
 import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
 import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
@@ -49,6 +51,7 @@ export default function RepaymentWizard({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const { baseCurrency } = useCurrencyConverter();
   const record = useRecordRepayment();
   const accounts = useAccountList();
   const borrowed = debt.direction === "owed_by_me";
@@ -160,22 +163,11 @@ export default function RepaymentWizard({
               <Label htmlFor="repay-amount" className="visually-hidden">
                 {t("common.amount")}
               </Label>
-              <InputGroup>
-                <Input
-                  id="repay-amount"
-                  aria-required
-                  autoFocus
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  inputMode="decimal"
-                  value={amount}
-                  invalid={tried && !amountOk}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
+              {/* A debt is kept in the base currency; the amount is typed in it. */}
+              <MoneyInput id="repay-amount" required autoFocus min={0} currency={baseCurrency} value={amount} invalid={tried && !amountOk} onChange={setAmount}>
                 <InputGroupText>{t("debts.of", { amount: formatCurrency(debt.remaining) })}</InputGroupText>
                 <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
-              </InputGroup>
+              </MoneyInput>
               <SpendNote check={spend} />
               <div className={styles.wizChips}>
                 {suggested !== debt.remaining && (

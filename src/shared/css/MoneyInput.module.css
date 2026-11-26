@@ -1,0 +1,17 @@
+/* The sign of the money at the end of an amount field (`MoneyInput`): a grey
+   cell that belongs to the field — it never wraps away from the number, and it
+   reads as a unit, not as something to type into. The neutral chip ground of
+   the app, so it is grey in both colourways and both modes. */
+
+.group {
+  flex-wrap: nowrap;
+}
+
+.sign {
+  min-width: 2.75rem;
+  justify-content: center;
+  background: var(--neutral-soft);
+  color: var(--on-neutral-soft);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

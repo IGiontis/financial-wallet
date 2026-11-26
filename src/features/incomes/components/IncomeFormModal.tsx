@@ -27,6 +27,7 @@ import { NameCheck } from "../../../shared/components/NameCheck";
 import { INCOMES_KEY, cleanIncomes, type Income as StoredIncome } from "../incomesUtils";
 import { typedBlur } from "../../../shared/utils/typedBlur";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 
@@ -303,11 +304,12 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               <div className="row g-2 mb-3">
                 <div className="col-12 col-sm-6">
                   <Label for="income-amount" className="small fw-medium">
-                    {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency})
+                    {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")}
                     <RequiredMark />
                   </Label>
-                  <Input id="income-amount" aria-required type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
-                  <FormFeedback>{error("amount")}</FormFeedback>
+                  <MoneyInput id="income-amount" required value={draft.amount} onChange={(v) => set("amount", v)} invalid={!!errors.amount}>
+                    <FormFeedback>{error("amount")}</FormFeedback>
+                  </MoneyInput>
                 </div>
               </div>
               {/* «Ναι» needs nothing more: the amount above becomes the estimate. */}

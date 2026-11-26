@@ -96,6 +96,24 @@ describe("the loan wizard's steps", () => {
     expect(screen.queryByRole("button", { name: /^Next/ })).toBeNull();
   });
 
+  it("opened from a person's page, keeps that person locked but still asks which way (owner, 2026-11-26)", async () => {
+    render(<AddDebtModal knownPeople={["Keki", "Nikos"]} defaultPerson="Keki" onClose={() => {}} />);
+    const who = screen.getByPlaceholderText("e.g. my brother");
+    expect(who).toHaveValue("Keki");
+    expect(who).toBeDisabled();
+    expect(screen.getByText(/You are on Keki's page/)).toBeInTheDocument();
+    // The direction is still the reader's to choose.
+    const lent = screen.getByRole("button", { name: "I lent them" });
+    expect(lent).toBeEnabled();
+    await userEvent.click(lent);
+    expect(lent).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("a debt started from the Debts page itself leaves the person free", () => {
+    open();
+    expect(screen.getByPlaceholderText("e.g. my brother")).toBeEnabled();
+  });
+
   it("does not leave step 1 without a person, nor the money step without an amount above 0", async () => {
     open();
     await next();
@@ -114,13 +132,14 @@ describe("the loan wizard's steps", () => {
     expect(current()).toMatch(/Interest/);
   });
 
-  it("starts the interest question on «Yes» (owner, 2026-11-12), the loan's figures shown, and goes on with it", async () => {
+  it("starts the interest question on «No» — a plain debt (owner, 2026-11-26) — and goes on with it", async () => {
     open();
     await fillWho("Keki", "100");
     await next();
-    expect(yes()).toHaveAttribute("aria-checked", "true");
-    expect(no()).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByLabelText("Yearly interest")).toBeInTheDocument();
+    expect(no()).toHaveAttribute("aria-checked", "true");
+    expect(yes()).toHaveAttribute("aria-checked", "false");
+    // Nothing of a loan is shown until «Yes» is picked.
+    expect(screen.queryByLabelText("Yearly interest")).toBeNull();
     expect(screen.queryByText("Pick Yes or No")).toBeNull();
     await next();
     expect(current()).toMatch(/When/);

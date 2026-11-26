@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Alert, Button, FormFeedback, FormGroup, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCheck } from "react-icons/fi";
 import { addMonths, startOfDay } from "date-fns";
@@ -17,6 +17,7 @@ import styles from "../css/IncomesPage.module.css";
 import { FORM_MODAL, moneyToneHead } from "../../../shared/components/formModal";
 import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 
 // «Ήρθε»: four fields and one button.
 //
@@ -211,23 +212,20 @@ export default function ArrivedSheet({ income, status, options, expected, readin
 
           <FormGroup>
             <Label for="arrived-amount" className="small fw-medium">
-              {t("incomes.arrived.amount")} ({displayCurrency})
+              {t("incomes.arrived.amount")}
               <RequiredMark />
             </Label>
-            <Input
+            <MoneyInput
               id="arrived-amount"
-              aria-required
-              type="number"
-              inputMode="decimal"
-              min={0.01}
-              step={0.01}
-              className={styles.amountInput}
+              required
+              inputClassName={styles.amountInput}
               autoFocus={!!income.variable}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
               invalid={touched && !!amountError}
-            />
-            <FormFeedback>{amountError && t(amountError)}</FormFeedback>
+            >
+              <FormFeedback>{amountError && t(amountError)}</FormFeedback>
+            </MoneyInput>
             {income.variable && (
               <div className="text-body-secondary mt-1" style={{ fontSize: "var(--fs-small)" }}>
                 {expected.estimated

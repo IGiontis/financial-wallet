@@ -92,6 +92,135 @@ this file disagree, ask him — one of them is a bug.
 
 ## How it looks
 
+- **THE UPGRADE, addendum (owner, 2026-11-26): one place for buttons, one place for motion, one dial
+  for roundness.** (a) **`src/shared/buttons/`** — every button is an INTENT, never a colour:
+  `<ActionButton intent="save|edit|cancel|back|next|delete|confirm|add|danger-soft|link">`
+  (+ `DeleteButton`, `AddButton` folded in). Pages say what it DOES; the folder decides colour,
+  radius, icon slot, loading/disabled state, press feel. Today there are 118 `primary` + 118
+  `secondary` raw Reactstrap buttons and 2 shared ones — that is the drift. A design-lint test
+  forbids a raw `<Button color=…>` outside the folder (existing ones migrate in P1, a codemod).
+  (b) **`src/shared/motion/`** — ONE `motion.css` (all `@keyframes`, now spread over 11 files) +
+  `motion.ts` (names, durations, easings) + `useCountUp` / `useEnter`. Motion is chosen by MEANING
+  through a data attribute, `data-motion="delete|save|edit|add|success|error|enter"`, e.g. delete =
+  collapse + fade out, save = soft check pop + settle, edit = brief highlight pulse, add = grow in,
+  error = a short shake. Change one line there and every delete in the app changes. Per-intent
+  variants live in a table, not in page CSS. (c) **Desktop interactions** (`@media (hover:hover)`
+  only): card lift + shadow step, a following sheen on hero cards, icon nudges on buttons,
+  ripple-free pressed state, focus ring that animates in; never needed to understand a control.
+  (d) **Roundness is one dial:** `--radius-scale` multiplies every `--radius-*`; the whole app goes
+  rounder or squarer by editing one number, and the design-lint test forbids literal radii. (e) The
+  new-transaction wizard's Back/Next and its colour are the first thing P1 brings in line, as the
+  worst outlier. **A step further:** design tokens in one JSON (`tokens.json`) generating
+  `tokens.css`, so colours, radii, shadows and motion are edited in a single file; and the dev kit
+  route doubles as a visual-regression check (screenshots compared per change).
+- **THE UPGRADE, addendum 2 (owner, 2026-11-26): feedback states, a dead-code audit, and «new work
+  must know the reusables».** (a) **Busy button:** `ActionButton` takes `busy`; while busy it is
+  disabled, shows a small spinner and changes its label to the progressive word («Αποθήκευση…»,
+  «Διαγραφή…»), width held so nothing jumps. Today no button has a spinner. It is wired to the
+  existing run-once guard (`useOnceMutation`), so busy and «runs once» are one thing. (b) **Static
+  modal feedback:** the backdrop shake exists once in `theme.css`; it becomes a named
+  `data-motion="blocked"` (shake + the dialog's border flashing the brand colour) plus a one-line
+  hint «Κλείνει μόνο με το ✕ ή το Άκυρο» the first time, so it never looks like a bug. (c) **The
+  missing feedback set**, all in `shared/motion/`: busy, blocked, success tick, error shake, a copy
+  confirmation, a pull/refresh indicator, optimistic-row «pending» pulse (ties to `row-pending`),
+  progress that advances (goals), skeleton → content crossfade, toast in/out, badge pop on a new
+  count. (d) **Timing scale**, one table: micro 120–180ms · buttons 150–220 · cards 250–400 · route
+  300–450 · charts 600–1000 · counters 700–1200. Route transitions use a plain crossfade/slide on
+  `transform`/`opacity`, never a layout animation. (e) **Dead / old code audit — a P1 task, before
+  anything is built on top:** add `knip` (unused files, exports, dependencies) and a stylelint
+  pass (unused or duplicate CSS, raw hex, literal radius/shadow/transition, `!important` outside the
+  layer), plus a script that lists CSS-module classes nothing imports; then triage in rounds with
+  the reviewer agent (delete what is provably dead, list what is doubtful). Also the Bootstrap-
+  override leftovers in `index.css`, which is where the stale `wash-*` rules were found. (f) **New work
+  must know the reusables — three guards:** the `new-feature` skill gets a mandatory first step
+  «open the kit route and `docs/COMPONENTS.md`, name the pieces you will reuse»; the `page-builder`
+  and `reviewer` agents get the same line plus «a raw button, radius, shadow, keyframe or hex is a
+  finding»; and design-lint tests fail the build if one appears. The kit route and COMPONENTS.md are
+  generated from the same list, so the map cannot drift from the code. *Don't:* add a button, spinner,
+  keyframe or colour outside the kit folders.
+- **THE UPGRADE, addendum 3 (owner, 2026-11-26): docs hygiene, guards, and «actions wait for their data».**
+  (a) **Docs are overwritten, not appended** (rule now in CLAUDE.md): topic-keyed entries, one ACTIVE per key,
+  replaced text goes to `docs/archive/DECISIONS_HISTORY.md`, a test fails on two active entries for one key;
+  this file (444 lines, 22 «Don't»s) is migrated to that shape in P1. (b) **Guards are tests and hooks, not more
+  prose:** design-lint tests plus a Claude Code `PostToolUse` hook that runs the lint on every edited CSS/TSX file,
+  so an agent sees the violation in the same turn; md guards only point at them. (c) **An action declares its data**
+  — `needs={["categories","accounts"]}` on `ActionButton`/`AddFab`, one registry of what each action needs. Not
+  greyed out: pressed before its data is ready, it shows the busy spinner and OPENS the moment the data arrives
+  (≤ 8 s, then the page-load rule applies); only the part that needs data shows a skeleton. Lists the app
+  always needs (categories, accounts) are warmed at start so this is almost never visible. *Don't:* a dead-looking
+  button, or a modal that opens first and loads inside.
+- **[bill:clearing] A clearing bill is one payment on the latest month** (owner, 2026-11-26): water
+  left to pile up, then ONE final figure. The whole amount is kept on ONE payment on the latest
+  month with the one expense; the other months get a 0-row «καλύφθηκε από το εκκαθαριστικό», left
+  out of averages (the clearing counts as its share per month). Chosen over spreading the figure
+  across the months, which would have made every later edit of the expense from Transactions
+  re-split it. «Ο λογαριασμός συνεχίζεται;» starts on «Ναι»; «Όχι» stops it from TODAY's month
+  (he paid everything today — not from the bill's next period, which read «from January» on 26
+  November for a two-monthly bill), kept in the history. Its expense's details on Transactions carry one more box, «Εκκαθαριστικός λογαριασμός · Κλείνει 4 μήνες: Ιούλ – Οκτ». Deleting the clearing says how many months
+  reopen. *Don't:* spread a clearing over the months, or offer it for a bill paid in instalments.
+- **THE UPGRADE, addendum 4 (owner, 2026-11-26): the same hygiene for EVERY md file, with a cleanup.**
+  Audit (2026-11-26): every file path the docs name still exists (the `docsMap` test keeps that true),
+  so the rot is not dead links but STALE MEANING — `AddHeader`, `.wash-expense`/`.wash-income` and
+  «header card» are still described in COMPONENTS / DECISIONS / PROJECT_MAP although the code replaced
+  them, and `.claude/rules/ui.md` has grown to 221 lines of numbered rules, several superseded (15a–15d,
+  the header rules 1/2/8 rewritten twice). Per file: **COMPONENTS / PROJECT_MAP / DATABASE / DATA_FLOW /
+  ARCHITECTURE** are descriptions of NOW — rewritten in place, never a «was/now» note; **ui.md** — one rule
+  per topic key, rewritten in place; **DECISIONS** — topic-keyed, one ACTIVE per key, the rest to
+  `docs/archive/DECISIONS_HISTORY.md`. The cleanup is a P1 task, run BEFORE any build: a read-only agent
+  lists, per file, every statement the code no longer matches (checked against the code, not the other
+  docs), a second pass deletes only what is proven stale and reports what it is unsure of. A test
+  (`docs.stale.test.ts`) keeps a list of retired terms (`AddHeader`, `wash-*`, `stepNow` …) and fails if
+  one reappears in a doc. *Don't:* keep a superseded sentence «for context».
+- **THE VISUAL UPGRADE — decided 2026-11-24..26, NOT YET BUILT** (the owner handed the decisions to
+  me, as a senior engineer with a web-design background; he judged the app «design του 2015»: 6px
+  corners, hairline borders, no elevation, no entrance motion, charts from two libraries, pages
+  drawn before the agents and the md files existed). The decisions:
+  1. **Direction: «calm, elevated, one hero»** — soft floating cards (reference 1) + type
+     discipline (reference 4), with ONE gradient hero card per page at most (reference 3). NOT
+     glossy-everywhere: it tires a daily-use money app, costs paint time on an iPhone, and a
+     glow cannot hold the 8:1 contrast contract or the gold colourway.
+  2. **In place, not a framework, not from scratch.** Change the shared tokens (`shape.css`: radius,
+     elevation, motion) so the whole app shifts at once, then a small shared kit. A framework would
+     rewrite 69 modules and ~3,500 tests and fight Bootstrap; from scratch loses every decision.
+  3. **Elevation, four levels, tokens only:** 0 flat (page, list rows), 1 card at rest, 2 raised
+     (hover, menus), 3 overlay (dialogs). Light: a tinted low-alpha shadow AND a 1px `--border-soft`
+     hairline (a shadow alone vanishes in sunlight). Dark: no drop shadow at rest — the surface
+     steps LIGHTER (`--surface` → `--surface-raised`) plus a hairline; shadow only on overlays.
+  4. **Shape:** card 16px · tile 14 · button 12 (not pill) · input 12 · chip/segment pill · modal 20 ·
+     hero 24. Proposals to be confirmed on the kit sheet, then frozen in `shape.css`.
+  5. **One shared tile** — `StatTile`: icon chip (tone scale) + label + big tabular figure + delta
+     (icon + sign + word, never colour alone, ui.md 14) + optional sparkline. One `HeroCard`
+     per page, gradient dark top-left → light bottom-right, in BOTH colourways (the gold one too).
+  6. **One chart library: Recharts**, behind our own `ChartKit` (theme, soft curves, gradient area,
+     dashed guides, rounded bars, tooltip with marker, donut with its total, entry draw). ECharts
+     (2 files) is retired. Reason beyond «7 files vs 2»: Recharts draws SVG, so the charts read
+     our CSS variables and follow colourway × mode for free; ECharts paints canvas and needs a
+     palette hook (`useChartPalette`) kept in step by hand.
+  7. **Motion is CSS-first, five patterns, no `motion` npm:** press (scale .97), hover lift (only
+     `@media (hover:hover)` — never on touch), entrance rise (8px, 40ms stagger, ≤6 items, ONCE
+     per route visit, never replayed by a background refetch), chart draw (once), count-up
+     (`useCountUp`, ~20 lines, figures only, not in lists). Only `transform`/`opacity`. Honours
+     `prefers-reduced-motion` and the Settings switch (`reducedMotion.test.ts`). Revisit `motion`
+     only for list reordering or swipe gestures.
+  8. **Hard limits:** NO `backdrop-filter`/blur anywhere (iPhone cost, breaks contrast); long lists
+     (transactions, ledger) stay FLAT rows — floating cards are for ≤ ~20 on screen; gradient only on
+     the hero; the 8:1 text contract and the two colourways are untouched.
+  9. **Skin first, layout later.** Phone is the main device and a single column suits it. Only
+     AFTER the skin is proven: a desktop dashboard grid for the Overview (KPI row + side panel),
+     maybe Banks. No other page is re-laid-out.
+  10. **Consistency is enforced, not hoped for:** a dev-only kit route showing every piece in 2
+      colourways × 2 modes × phone/desktop (it IS the mockup he approves), plus «design-lint» tests
+      in the style of `typeScale.test.ts` that fail on a raw radius, an ad-hoc `box-shadow` or an
+      ad-hoc `transition` in any module CSS.
+  **Order:** (P0) the kit sheet — the ONE visual he approves before anything rolls out · (P1)
+  tokens + base pieces (cards, buttons, inputs, tabs, chips, modals) · (P2) `StatTile`, `HeroCard`,
+  `ChartKit` + the ECharts migration + motion · (P3) pages in rounds — Overview, Statistics (it
+  absorbs «Πού πήγε ο μήνας» and the summary stats), Goals (year chips), Banks, Bills/Incomes, Debts,
+  Planner (it absorbs «Μπαίνουν/Βγαίνουν» + «Μήνες»), Business, Calendar, Settings · (P4) the
+  Overview's desktop grid · (P5) the demo pass, ALWAYS last. Round 2 and the Statistics/Planner
+  rounds are therefore FOLDED INTO P3 so nothing is built twice; Round 3's small bugs stay separate
+  and can go first. *Don't:* add a UI framework, `backdrop-filter`, a third chart library, a gradient
+  on anything but the hero, or hover effects that need a mouse to be understood.
 - **A bank card's lettering is always light, and the card is never a flat colour under it**
   (2026-11-24, mockup Γ over «light ink only» (Α) and «darker finishes» (Β)): the card's ink is
   its own token, NOT `--on-brand`, which flips dark in the dark mode and dropped the name and
@@ -197,8 +326,7 @@ this file disagree, ask him — one of them is a bug.
   yes/no starts on «Ναι»; an edit shows what is stored. Unpicked only where «Ναι» takes money from a
   card, erases records, or would take something from another record.
   *Start on «Ναι»:* bill «Ενεργός;», «Αλλάζει το ποσό;», «Πληρώνεται αργότερα;» (shows the days),
-  «Σταματά για λίγο;» (shows the months); goal/investment «Ενεργός;»; debt «Με τόκο;» (shows the
-  loan's figures; no term = saved as a plain debt, as before); income «Αλλάζει το ποσό;», «Κάνει
+  «Σταματά για λίγο;» (shows the months); goal/investment «Ενεργός;»; income «Αλλάζει το ποσό;», «Κάνει
   διάλειμμα;», «Είναι ο μισθός;» (only when no other income is the salary); planner «Κάθε χρόνο;»
   on «Μόνο κάποιους μήνες» (set on the draft, so it is what is saved).
   *Left unpicked:* «Πέρασαν λεφτά από κάρτα;» (`MoneyMovedPicker`: new debt, repayment, repayment
@@ -289,7 +417,7 @@ this file disagree, ask him — one of them is a bug.
   the transaction review, the sum drawn on a card.
 - **Bills «Κανονικό» (2026-11-19, he confirmed the mockup):** header as now; middle = the unpaid periods (or the current one when paid) with their day blocks, as now; FOOTER = two boxes side by side, each with a day block — «Προηγούμενος» (date the last bill was paid + amount, green block) and «Επόμενος» (next due date + amount, dashed empty block). «Απλό» has no footer; «Αναλυτικό» adds the three figures and the 6-month strip below. Coloured dots: a general idea for elsewhere.
 - **Goals by year** (2026-11-19): a goal's year comes from its deadline (chip «Στόχος 2028», no new field; an optional year only for goals without a deadline); Goals page gets a year filter; the PLANNER groups goals under their year (sub-groups 2026 · 2027 · 2028 …).
-- **Debt form (2026-11-19):** the goal link is a yes/no «Πήγε σε στόχο;» — only «Ναι» reveals the goal picker (not the «πλήρωσε για μένα» picker shown up front); nothing pre-picked because it links money. «Με τόκο;» ALWAYS starts on «Απλό χρέος» (no interest) — this overrides the earlier «Ναι» default for it.
+- **Debt form (2026-11-19):** the goal link is a yes/no «Πήγε σε στόχο;» — only «Ναι» reveals the goal picker (not the «πλήρωσε για μένα» picker shown up front); nothing pre-picked because it links money. «Με τόκο;» ALWAYS starts on «Απλό χρέος» (no interest) — the one exception to «starts on Ναι» for a debt. (Decided 2026-11-19, but the code still started on «Ναι» until 2026-11-26, when he found it again.) Opened from a person's page, the new debt's PERSON is locked to that page; only which way it goes is asked.
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { parseAmount, type MoneyAccount } from "./accountsUtils";
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
@@ -87,20 +88,17 @@ export default function EditReadingModal({
                 </span>
                 <span className={styles.note}>{moved === 0 ? t("accounts.fixWas", { amount: formatCurrency(amounts[account.id]) }) : t("accounts.changeFrom", { change: signed(moved), amount: formatCurrency(amounts[account.id]) })}</span>
               </label>
-              <InputGroup className={styles.readInput}>
-                <Input
-                  id={`fix-${account.id}`}
-                  aria-required
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={raw}
-                  invalid={raw.trim() !== "" && value === undefined}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onChange={(e) => setValues((v) => ({ ...v, [account.id]: e.target.value }))}
-                />
-                <InputGroupText>{baseCurrency}</InputGroupText>
-              </InputGroup>
+              <MoneyInput
+                className={styles.readInput}
+                id={`fix-${account.id}`}
+                required
+                type="text"
+                currency={baseCurrency}
+                value={raw}
+                invalid={raw.trim() !== "" && value === undefined}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(typed) => setValues((v) => ({ ...v, [account.id]: typed }))}
+              />
             </div>
           );
         })}

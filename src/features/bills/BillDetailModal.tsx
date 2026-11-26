@@ -3,11 +3,11 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, Input
 import { DialogFooter } from "../../shared/components/DialogFooter";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
-import { FiCheck, FiChevronLeft, FiEdit2, FiFastForward, FiMoreHorizontal, FiPause, FiPlay, FiRotateCcw, FiX } from "react-icons/fi";
+import { FiCheck, FiChevronLeft, FiEdit2, FiFastForward, FiFileText, FiMoreHorizontal, FiPause, FiPlay, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError, dateFormat, formatDay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
-import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, getIntervalCount, monthlyEquivalent, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
+import { billOverdue, clearablePeriods, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, getIntervalCount, monthlyEquivalent, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { billStartText } from "./billStartText";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
@@ -32,6 +32,8 @@ interface BillDetailModalProps {
   onPayPeriod: (bill: BillWithStatus, cell: MonthCell) => void;
   /** "I've paid these": mark the overdue periods paid without a transaction. */
   onSettleOverdue: (bill: BillWithStatus) => void;
+  /** «Ήρθε εκκαθαριστικό»: one final figure for several unpaid months (`ClearBillModal`). Absent: not offered. */
+  onClear?: (bill: BillWithStatus) => void;
   onEdit: (bill: BillWithStatus) => void;
   onDelete: (bill: BillWithStatus) => void;
   /** Off for now, or back on (the page's toggle, with its toast) — under «Ενέργειες». */
@@ -58,7 +60,7 @@ function Fact({ label, value, accent, sub }: { label: string; value: string; acc
   );
 }
 
-export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onSettleOverdue, onEdit, onDelete, onToggle }: BillDetailModalProps) {
+export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onSettleOverdue, onClear, onEdit, onDelete, onToggle }: BillDetailModalProps) {
   const { t, i18n } = useTranslation();
   // «Προβολή» first; «Ενέργειες» is a step inside the same dialog — never a dialog over it (owner, 2026-11-16).
   const [step, setStep] = useState<"view" | "actions">("view");
@@ -168,6 +170,15 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               <Button color="secondary" outline onClick={() => onSettleOverdue(bill)} disabled={isBusy} className="text-start">
                 <FiCheck size={15} className="me-2" aria-hidden />
                 {t("bills.settleOverdue")}
+              </Button>
+            )}
+            {/* One final figure for every unpaid month — water left to pile up,
+                then a single bill (owner, 2026-11-26). Only with months owed and
+                a bill paid in one go per period (`clearablePeriods`). */}
+            {onClear && clearablePeriods(bill).length > 0 && (
+              <Button color="secondary" outline onClick={() => onClear(bill)} disabled={isBusy} className="text-start">
+                <FiFileText size={15} className="me-2" aria-hidden />
+                {t("bills.clear.action")}
               </Button>
             )}
             {paid && (
@@ -343,7 +354,11 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                   <div key={p.id} id={`payment-${p.id}`} className={styles.paymentRow}>
                     {/* A payment with no expense behind it deletes nothing else —
                         say so, since the usual warning names an expense. */}
-                    <span className={styles.paymentWarn}>{t(p.transactionId ? "bills.deletePaymentConfirm" : "bills.deletePaymentNoTxConfirm")}</span>
+                    <span className={styles.paymentWarn}>
+                      {p.covers?.length
+                        ? t("bills.clear.deleteConfirm", { count: p.covers.length })
+                        : t(p.transactionId ? "bills.deletePaymentConfirm" : "bills.deletePaymentNoTxConfirm")}
+                    </span>
                     <Button
                       color="danger"
                       size="sm"
@@ -366,23 +381,41 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                   <span className={styles.paymentDate}>{formatDay(firestoreToDate(p.paidDate), i18n.resolvedLanguage)}</span>
                   {/* Marked paid with no transaction — "I've paid these" — so the
                       history says why no expense matches it. */}
-                  {!p.transactionId && (
+                  {/* A month a clearing closed (owner, 2026-11-26): its money is on
+                      the clearing's own row, so it says so rather than «0,00 €»,
+                      and is changed only through that row — deleting the
+                      clearing reopens it. */}
+                  {p.coveredBy ? (
                     <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: "var(--fs-caption)" }}>
-                      {t("bills.noTransaction")}
+                      {t("bills.clear.covered")}
                     </Badge>
+                  ) : p.covers?.length ? (
+                    <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: "var(--fs-caption)" }}>
+                      {t("bills.clear.clearingFor", { count: 1 + p.covers.length })}
+                    </Badge>
+                  ) : (
+                    !p.transactionId && (
+                      <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: "var(--fs-caption)" }}>
+                        {t("bills.noTransaction")}
+                      </Badge>
+                    )
                   )}
-                  <span className={styles.paymentAmount}>{formatCurrency(p.amount)}</span>
-                  <button type="button" className={styles.paymentAction} onClick={() => startEdit(p)} aria-label={t("common.edit")} title={t("common.edit")}>
-                    <FiEdit2 size={14} />
-                  </button>
-                  <DeleteButton opensConfirm
-                    iconOnly
-                    size="sm"
-                    onClick={() => {
-                      setEditing(null);
-                      setConfirmingDelete(p.id);
-                    }}
-                  />
+                  <span className={styles.paymentAmount}>{p.coveredBy ? "—" : formatCurrency(p.amount)}</span>
+                  {!p.coveredBy && (
+                    <>
+                      <button type="button" className={styles.paymentAction} onClick={() => startEdit(p)} aria-label={t("common.edit")} title={t("common.edit")}>
+                        <FiEdit2 size={14} />
+                      </button>
+                      <DeleteButton opensConfirm
+                        iconOnly
+                        size="sm"
+                        onClick={() => {
+                          setEditing(null);
+                          setConfirmingDelete(p.id);
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
               );
             })}

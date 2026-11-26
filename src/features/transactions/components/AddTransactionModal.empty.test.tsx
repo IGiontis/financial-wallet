@@ -67,8 +67,10 @@ describe("a new transaction", () => {
     await user.click(within(dialog).getByRole("button", { name: "pick groceries" }));
 
     // The schema's required ones: amount, date and payee; the notes are optional.
-    expect(markedLabels(dialog)).toEqual(["Amount (EUR)", "Date", "Payee"]);
+    // The currency is the field's end cell (`MoneyInput`), never a «(EUR)» in the label.
+    expect(markedLabels(dialog)).toEqual(["Amount", "Date", "Payee"]);
     expect(within(dialog).getByRole("spinbutton")).toHaveAttribute("aria-required", "true");
+    expect(within(dialog).getByRole("spinbutton").nextElementSibling).toHaveTextContent("€");
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("aria-required", "true");
     expect(within(dialog).getByPlaceholderText(i18n.t("common.optionalNote"))).not.toHaveAttribute("aria-required");
   });

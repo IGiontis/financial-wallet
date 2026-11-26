@@ -9,6 +9,7 @@ import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { dayToDate, parseISODay, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay, dateFormat } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { SpendNote } from "../accounts/SpendNote";
 import { useSpendCheck } from "../accounts/useSpendCheck";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
@@ -17,7 +18,7 @@ import { useStepTried } from "../../shared/hooks/useStepTried";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import wiz from "../../shared/css/Wizard.module.css";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
-import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
+import { billOverdue, clearablePeriods, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
 import { FORM_MODAL, moneyToneHead } from "../../shared/components/formModal";
 import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
@@ -41,6 +42,8 @@ interface MarkPaidModalProps {
    * `accountId` is the card or cash it was paid from, absent for the main account.
    */
   onConfirm: (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number, accountId?: string) => void;
+  /** Hands over to «Ήρθε εκκαθαριστικό» when several months are owed (`ClearBillModal`). Absent: not offered. */
+  onClearing?: () => void;
 }
 
 /** How many periods forward the user may settle in one go. */
@@ -98,7 +101,7 @@ function usePeriodLabel(bill: BillWithStatus) {
  * €120 the next, so the stored amount is only an estimate and the real figure
  * is entered here.
  */
-export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetInstallmentIndex, onClose, onConfirm }: MarkPaidModalProps) {
+export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetInstallmentIndex, onClose, onConfirm, onClearing }: MarkPaidModalProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
@@ -110,6 +113,8 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   const holds = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
 
   const periods = useMemo(() => getPeriodOptions(bill, bill.payments, new Date(), PERIOD_CHOICES, PERIOD_LOOKBACK), [bill]);
+  // How many unpaid months one final bill could close — the offer to switch shows from two.
+  const clearableCount = useMemo(() => clearablePeriods(bill).length, [bill]);
   // Behind on anything, the oldest of it comes first. Utilities are settled
   // oldest first, and a payment filed against this month instead left July
   // to September overdue while the bill read as paid — the Overview's "€180
@@ -296,24 +301,25 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               )}
 
               <FormGroup className="mb-0">
+                {/* The amount's label names the amount; the currency's sign sits at
+                    the END of the field (`MoneyInput`) — «Ποσό (EUR)» broke onto
+                    two lines on a phone (owner, 2026-11-26). */}
                 <Label for="pay-amount" className="small fw-medium">
-                  {t("common.amount")} ({displayCurrency})
+                  {t("common.amount")}
                   <RequiredMark />
                 </Label>
-                <Input
+                <MoneyInput
                   id="pay-amount"
-                  aria-required
-                  type="number"
                   name="amount"
-                  min={0.01}
-                  step={0.01}
+                  required
                   autoFocus
                   value={formik.values.amount}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
+                  onChange={(v) => void formik.setFieldValue("amount", v)}
+                  onBlur={() => void formik.setFieldTouched("amount", true)}
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
-                />
-                <FormFeedback>{formik.errors.amount && t(formik.errors.amount)}</FormFeedback>
+                >
+                  <FormFeedback>{formik.errors.amount && t(formik.errors.amount)}</FormFeedback>
+                </MoneyInput>
                 {/* The card was chosen on the step before; this is where the
                     two meet (rule 22). */}
                 <SpendNote check={spend} />
@@ -391,6 +397,17 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
             </>
           )}
 
+          {/* Several months owed: perhaps one final bill came for all of them
+              (owner, 2026-11-26). Said on the first step, before anything is
+              typed, and it hands over to its own form. */}
+          {step === "card" && onClearing && !presetPeriodKey && clearableCount > 1 && (
+            <Alert color="info" className="py-2 d-flex align-items-center justify-content-between gap-2 flex-wrap" style={{ fontSize: "var(--fs-small)" }}>
+              <span>{t("bills.clear.payHint", { count: clearableCount })}</span>
+              <Button type="button" size="sm" color="primary" outline onClick={onClearing}>
+                {t("bills.clear.payHintButton")}
+              </Button>
+            </Alert>
+          )}
           {step === "card" && <AccountPicker value={account} onChoose={setAccount} income={false} invalid={tried("card")} />}
 
           {step === "review" && (

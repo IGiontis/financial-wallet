@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import segmented from "../../shared/css/Segmented.module.css";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -21,6 +21,7 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { typedBlur } from "../../shared/utils/typedBlur";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
@@ -221,11 +222,9 @@ export default function AccountModal({
                     {t("accounts.holdsNow")}
                     <RequiredMark />
                   </Label>
-                  <InputGroup>
-                    <Input id="account-amount" aria-required type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={amount} invalid={touched && !amountOk} onChange={(e) => setAmount(e.target.value)} />
-                    <InputGroupText>{baseCurrency}</InputGroupText>
+                  <MoneyInput id="account-amount" required type="text" currency={baseCurrency} value={amount} invalid={touched && !amountOk} onChange={setAmount}>
                     <FormFeedback>{t("accounts.wizard.amountNeeded")}</FormFeedback>
-                  </InputGroup>
+                  </MoneyInput>
                   <div className="form-text">{t("accounts.holdsNowHint")}</div>
                 </FormGroup>
               )}

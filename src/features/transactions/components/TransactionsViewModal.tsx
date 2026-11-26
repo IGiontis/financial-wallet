@@ -3,9 +3,13 @@ import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { useTranslation } from "react-i18next";
-import type { Transaction, Category } from "../../../shared/types/IndexTypes";
+import type { Transaction, Category, BillWithStatus } from "../../../shared/types/IndexTypes";
+import { useContext } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
+import { useAuth } from "../../../shared/hooks/useAuth";
+import { billKeys } from "../../bills/billCache";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { firestoreToDate, formatRecordDay, sameDay, formatTime, formatDayShortTime } from "../../../shared/utils/dates";
+import { dateFormat, firestoreToDate, formatRecordDay, sameDay, formatTime, formatDayShortTime } from "../../../shared/utils/dates";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { intlLocale } from "../../../i18n";
 import {
@@ -61,6 +65,11 @@ export default function TransactionViewModal({
 }: Props) {
   const { t, i18n } = useTranslation();
   const { displayCurrency } = useCurrencyConverter();
+  // The context, not `useQueryClient()`: the sheet is also drawn where no data
+  // layer is around it (its own tests, a preview) — there it simply has no
+  // bills to look in, rather than throwing.
+  const queryClient = useContext(QueryClientContext);
+  const { currentUser } = useAuth();
   const accounts = useAccountList();
   const cat = resolveCategory(tx, categories);
   const lang = i18n.resolvedLanguage ?? "en";
@@ -190,6 +199,19 @@ export default function TransactionViewModal({
       ]
     : [];
 
+  // A clearing bill's expense says so, and which months it closed — read off
+  // the bills already on the device (no read of its own).
+  const clearing = (() => {
+    if (!tx.billId) return undefined;
+    const payments = queryClient?.getQueryData<BillWithStatus[]>(billKeys.all(currentUser?.uid ?? ""))?.flatMap((b) => b.payments) ?? [];
+    const payment = payments.find((p) => p.transactionId === tx.id);
+    if (!payment?.covers?.length) return undefined;
+    const keys = [payment.periodKey, ...payments.filter((p) => p.coveredBy === payment.id).map((p) => p.periodKey)].sort();
+    const monthOf = (key: string) => (/^\d{4}-\d{2}$/.test(key) ? dateFormat("monthYearShort", lang).format(new Date(`${key}-01T00:00:00`)) : key);
+    const span = keys.length > 1 ? `${monthOf(keys[0])} – ${monthOf(keys[keys.length - 1])}` : monthOf(keys[0]);
+    return t("bills.clear.boxValue", { count: 1 + payment.covers.length, span });
+  })();
+
   return (
     <Modal isOpen toggle={onClose} centered size="md">
       <ModalHeader toggle={onClose}>
@@ -215,6 +237,7 @@ export default function TransactionViewModal({
           gradientTo={gradientTo}
           account={accountName ? goalAccount(accountName) : undefined}
           recordedAt={recordedAt}
+          clearing={clearing}
         />
         {/* A loan's money, or the expense of a goal a friend paid: written
             by the debt and kept in step with it — changed from there. */}

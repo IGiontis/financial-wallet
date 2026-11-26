@@ -339,6 +339,12 @@
   border: 1px dashed var(--color-border-primary);
 }
 
+/* The extra per month: the number, its «€» and «/μήνα» — the width it had
+   before the sign, plus the sign's cell. */
+.payMoreField {
+  max-width: 234px;
+}
+
 .payMoreHead {
   font-size: var(--fs-small);
   font-weight: 600;

@@ -65,7 +65,7 @@ describe("editing a bill — No change, no Save", () => {
     open();
     await userEvent.type(await screen.findByDisplayValue("Edessa electricity"), " ");
     await toStep(2);
-    const amount = screen.getByLabelText(/^amount \(/i);
+    const amount = screen.getByLabelText(/^amount/i);
     await userEvent.clear(amount);
     await userEvent.type(amount, "60.00");
     await toStep(5);
@@ -88,7 +88,7 @@ describe("editing a bill — No change, no Save", () => {
   it("a real change turns Save on and saves; changed back, it is off again", async () => {
     const saved = open();
     await toStep(2);
-    const amount = screen.getByLabelText(/^amount \(/i);
+    const amount = screen.getByLabelText(/^amount/i);
     await userEvent.clear(amount);
     await userEvent.type(amount, "65");
     await toStep(5);
@@ -96,14 +96,14 @@ describe("editing a bill — No change, no Save", () => {
     expect(screen.queryByText("Nothing has changed")).toBeNull();
 
     await toStep(2);
-    await userEvent.clear(screen.getByLabelText(/^amount \(/i));
-    await userEvent.type(screen.getByLabelText(/^amount \(/i), "60");
+    await userEvent.clear(screen.getByLabelText(/^amount/i));
+    await userEvent.type(screen.getByLabelText(/^amount/i), "60");
     await toStep(5);
     expect(saveButton()).toBeDisabled();
 
     await toStep(2);
-    await userEvent.clear(screen.getByLabelText(/^amount \(/i));
-    await userEvent.type(screen.getByLabelText(/^amount \(/i), "65");
+    await userEvent.clear(screen.getByLabelText(/^amount/i));
+    await userEvent.type(screen.getByLabelText(/^amount/i), "65");
     await toStep(5);
     await userEvent.click(saveButton()!);
     await vi.waitFor(() => expect(saved).toHaveLength(1));

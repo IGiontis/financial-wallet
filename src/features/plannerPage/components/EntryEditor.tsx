@@ -17,6 +17,8 @@ import { EveryPicker } from "../../../shared/components/EveryPicker";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { cleanLine } from "../../../shared/utils/cleanText";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { asNumber, asSet } from "../../../shared/utils/sameValues";
@@ -98,6 +100,7 @@ function monthText(key: string | undefined, lang: string): string | undefined {
 export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories = [], takenBy, onDelete, onSave, onClose, now }: EntryEditorProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
+  const { baseCurrency } = useCurrencyConverter();
   const [value, setValue] = useState<EntryDraft>(draft);
   // Money in or money out: given by the caller, or asked on the first step.
   const askKind = !givenMode;
@@ -455,8 +458,10 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                   {amountLabel}
                   <RequiredMark />
                 </Label>
-                <Input id="entry-amount" aria-required type="number" min={0} inputMode="decimal" value={value.amount} invalid={tried && !amountOk} onChange={(e) => set({ amount: e.target.value })} placeholder="0" />
-                <FormFeedback>{t("planner.wizard_amountNeeded")}</FormFeedback>
+                {/* Planner lines are kept in the base currency, like every stored amount here. */}
+                <MoneyInput id="entry-amount" required min={0} currency={baseCurrency} value={value.amount} invalid={tried && !amountOk} onChange={(amount) => set({ amount })}>
+                  <FormFeedback>{t("planner.wizard_amountNeeded")}</FormFeedback>
+                </MoneyInput>
                 {!dated && <p className={styles.fieldHint}>{t(perMonth ? "planner.perMonthHint" : "planner.amount_spreadMonth")}</p>}
               </FormGroup>
 

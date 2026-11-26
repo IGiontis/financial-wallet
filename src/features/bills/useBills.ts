@@ -3,9 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { useToday } from "../../shared/hooks/useToday";
-import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, markBillPeriodsSettled, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
+import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, markBillCleared, markBillPeriodsSettled, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
 import { billsNeedingAttention, computeBillStatus, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
-import { billKeys, byUrgency, editBills, editPayments } from "./billCache";
+import { billKeys, byUrgency, editBills, editPayments, withoutPayment } from "./billCache";
 import { insertTransaction, setTransactionFields, transactionKeys } from "../transactions/hooks/useTransactions";
 import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Transaction, UpdateBillDTO } from "../../shared/types/IndexTypes";
@@ -257,6 +257,79 @@ export function useMarkBillPaid() {
   });
 }
 
+// ─── useClearBill ─────────────────────────────────────────────────────────────
+// A clearing bill («εκκαθαριστικός», owner 2026-11-26): one final figure for
+// several unpaid periods, paid once from a card. See `markBillCleared` for how
+// it is kept; here, the same instant-on-screen write as any other payment.
+
+export interface ClearBillVars {
+  bill: BillWithStatus;
+  /** The periods it settles, oldest first; the clearing is filed under the LAST. */
+  periodKeys: string[];
+  amount: number;
+  paidDate: Date;
+  accountId?: string;
+  /** "YYYY-MM" when it was a final bill: the bill stops from that month. */
+  stopFrom?: string;
+}
+
+const clearIds = new WeakMap<ClearBillVars, { paymentId: string; transactionId: string; covered: string[] }>();
+
+export function useClearBill() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+  const idsOf = (vars: ClearBillVars) =>
+    idsFor(clearIds, vars, () => ({ paymentId: newDocId("billPayments"), transactionId: newDocId("transactions"), covered: vars.periodKeys.slice(0, -1).map(() => newDocId("billPayments")) }));
+
+  const rowsFor = (vars: ClearBillVars) => {
+    const { bill, periodKeys, amount, paidDate, accountId } = vars;
+    const { paymentId, transactionId, covered } = idsOf(vars);
+    const now = new Date();
+    const last = periodKeys[periodKeys.length - 1];
+    const clearing = withoutUndefined({ id: paymentId, userId, billId: bill.id, periodKey: last, amount, paidDate, transactionId, covers: covered, createdAt: now }) as BillPayment;
+    const rows = periodKeys.slice(0, -1).map((periodKey, i) => ({ id: covered[i], userId, billId: bill.id, periodKey, amount: 0, paidDate, coveredBy: paymentId, createdAt: now }) as BillPayment);
+    const expense = withoutUndefined({ id: transactionId, userId, amount, type: "expense", categoryId: bill.categoryId, date: paidDate, description: bill.name, billId: bill.id, accountId, createdAt: now, updatedAt: now }) as Transaction;
+    return { payments: [clearing, ...rows], expense };
+  };
+
+  const addAll = (payments: BillPayment[]) => editPayments((list) => payments.reduce((rows, payment) => upsertById(payment)(rows), list));
+  const stopIt = (vars: ClearBillVars) => editBills((bills) => bills.map((b) => (b.id === vars.bill.id && vars.stopFrom ? { ...b, pause: { from: vars.stopFrom } } : b)));
+
+  return useOnceMutation<{ paymentId: string; transactionId: string }, Error, ClearBillVars, Rollback & { payments: BillPayment[]; expense: Transaction }>({
+    onceBy: (vars) => `${vars.bill.id}|clear|${vars.periodKeys.join(",")}`,
+    mutationFn: (vars) => {
+      const { paymentId, transactionId, covered } = idsOf(vars);
+      const last = vars.periodKeys[vars.periodKeys.length - 1];
+      return markBillCleared(
+        userId,
+        { id: vars.bill.id, name: vars.bill.name, categoryId: vars.bill.categoryId },
+        last,
+        vars.periodKeys.slice(0, -1).map((periodKey, i) => ({ id: covered[i], periodKey })),
+        vars.paidDate,
+        vars.amount,
+        { paymentId, transactionId },
+        vars.accountId,
+        vars.stopFrom,
+      );
+    },
+    onMutate: async (vars) => {
+      const { payments, expense } = rowsFor(vars);
+      const bills = await editList<BillWithStatus>(queryClient, billKeys.all(userId), (list) => stopIt(vars)(addAll(payments)(list)));
+      return { payments, expense, bills, transactions: await editList(queryClient, transactionKeys.all(userId), insertTransaction(expense)) };
+    },
+    onError: (_error, _vars, context) => {
+      restoreList(queryClient, context?.bills);
+      restoreList(queryClient, context?.transactions);
+    },
+    onSuccess: (_ids, vars, context) => {
+      if (!context) return;
+      confirmList<BillWithStatus>(queryClient, billKeys.all(userId), (list) => stopIt(vars)(addAll(context.payments)(list)));
+      confirmList(queryClient, transactionKeys.all(userId), insertTransaction(context.expense));
+    },
+  });
+}
+
 // ─── useSettleOverdue ─────────────────────────────────────────────────────────
 // "I've paid these": overdue periods marked paid without a transaction.
 //
@@ -330,7 +403,8 @@ export function useUnmarkBillPaid() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
-  const dropPayment = (paymentId: string) => editPayments(removeWhere<BillPayment>((p) => p.id === paymentId));
+  // A clearing goes with the 0-rows of the periods it settled (`withoutPayment`).
+  const dropPayment = (paymentId: string) => editPayments(withoutPayment(paymentId));
   const dropExpense = (transactionId: string) => removeWhere<Transaction>((t) => t.id === transactionId);
 
   return useOnceMutation<void, Error, { paymentId: string; transactionId?: string }, Rollback>({

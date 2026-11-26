@@ -70,6 +70,6 @@ export async function fillNew(name: string, amount: string, categoryId: string) 
   await next();
   // «Does it change?» starts on «Ναι» too, which names the field «Estimated amount»: «Όχι» first.
   await userEvent.click(await tile(/amount change/i, false));
-  await userEvent.type(screen.getByLabelText(/^amount \(/i), amount);
+  await userEvent.type(screen.getByLabelText(/^amount/i), amount);
   await userEvent.selectOptions(screen.getByLabelText(/^category/i), categoryId);
 }

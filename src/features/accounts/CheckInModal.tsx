@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiPlus } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
@@ -13,6 +13,7 @@ import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -138,20 +139,17 @@ export default function CheckInModal({
                 </button>
               )}
               </div>
-              <InputGroup className={styles.readInput}>
-                <Input
-                  id={`read-${account.id}`}
-                  aria-required
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={raw}
-                  invalid={bad}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onChange={(e) => setValues((v) => ({ ...v, [account.id]: e.target.value }))}
-                />
-                <InputGroupText>{baseCurrency}</InputGroupText>
-              </InputGroup>
+              <MoneyInput
+                className={styles.readInput}
+                id={`read-${account.id}`}
+                required
+                type="text"
+                currency={baseCurrency}
+                value={raw}
+                invalid={bad}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(typed) => setValues((v) => ({ ...v, [account.id]: typed }))}
+              />
             </div>
           );
         })}

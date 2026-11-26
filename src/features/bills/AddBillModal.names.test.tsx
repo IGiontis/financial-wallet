@@ -82,9 +82,11 @@ describe("the bill wizard's required fields", () => {
     await fillNew("Water", "20", "c1");
     // Step 2: amount, category and «does it change?».
     const [amount, ...rest] = markedLabels(dialog);
-    expect(amount).toMatch(/^Amount \(\w+\)$/);
+    // The currency is the field's end cell (`MoneyInput`), never a «(EUR)» in the label.
+    expect(amount).toBe("Amount");
     expect(rest).toEqual(["Category", "Does the amount change each time?"]);
-    expect(screen.getByLabelText(/^amount \(/i)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^amount/i)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^amount/i).nextElementSibling).toHaveTextContent("€");
     expect(screen.getByLabelText(/^category/i)).toHaveAttribute("aria-required", "true");
 
     await next();

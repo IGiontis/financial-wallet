@@ -1,6 +1,6 @@
 import { useState, type Ref } from "react";
 import { Link } from "react-router-dom";
-import { DropdownItem, DropdownMenu, DropdownToggle, Input, InputGroup, InputGroupText, UncontrolledDropdown } from "reactstrap";
+import { DropdownItem, DropdownMenu, DropdownToggle, UncontrolledDropdown } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronRight, FiX } from "react-icons/fi";
 
@@ -14,6 +14,7 @@ import UnconfirmedQuestion from "./UnconfirmedQuestion";
 import CycleSteps from "./CycleSteps";
 import styles from "../css/PlannerPage.module.css";
 import { dateFormat } from "../../../shared/utils/dates";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 
 /** The list behind the figure: what there was, each payment, and what is left. */
 export interface PaydaySteps {
@@ -130,10 +131,8 @@ export function PlannerPaydayCard({
       figure={available}
       figureSlot={
         fromBanks ? undefined : (
-          <InputGroup className={styles.scenarioInput}>
-            <Input type="number" inputMode="decimal" placeholder="0" value={openingInput} onChange={(e) => onOpening(e.target.value)} aria-label={t("planner.scenarioIf")} />
-            <InputGroupText>{baseCurrency}</InputGroupText>
-          </InputGroup>
+          // No minimum: «what if I had…» may start below zero.
+          <MoneyInput className={styles.scenarioInput} min={null} currency={baseCurrency} placeholder="0" value={openingInput} onChange={onOpening} ariaLabel={t("planner.scenarioIf")} />
         )
       }
       origin={

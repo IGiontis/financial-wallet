@@ -159,8 +159,13 @@ reasons are in `docs/DECISIONS.md`.
 - One paid period (or instalment) of a bill.
 - Fields: `billId`, `periodKey` ("2026-07" / "2026-W30" / "2026"), `installmentIndex?`,
   `amount`, `paidDate`, `transactionId?` (the mirrored expense; absent when settled outside the
-  app). Writes stamp `updatedAt` though the type omits it.
-- Writers: `markBillPaid` (with its expense), `markBillPeriodsSettled` (no expense, bulk),
+  app), `covers?` (a CLEARING bill: the ids of the other periods' rows it settled) / `coveredBy?`
+  (a row settled by a clearing — amount 0, no expense; the id of that clearing). Writes stamp
+  `updatedAt` though the type omits it. No rules change was needed for the two fields: the live
+  rules check ownership, ≤ 80 fields and the amount, not field names.
+- Writers: `markBillPaid` (with its expense), `markBillCleared` (one expense + the clearing +
+  a 0-row per other period, and the bill's `pause` when it was a final bill — one batch),
+  `markBillPeriodsSettled` (no expense, bulk),
   `updateBillPayment`, `unmarkBillPaid`, `updateTransaction`/`deleteTransaction` (via
   `BillPaymentLink`), `deleteBill`.
 - Queries: `userId == + billId ==` (bill delete), `userId == + transactionId ==` (find the

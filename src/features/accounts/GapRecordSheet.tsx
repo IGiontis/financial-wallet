@@ -3,7 +3,7 @@ import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
-import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiX } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
@@ -20,6 +20,7 @@ import { GAP_KINDS, gapEffect, gapOverrun, gapRecordProblem, gapRemaining, gapWr
 import { gapNewId, useSaveGapRecords } from "./useGapRecords";
 import styles from "./css/AccountsPage.module.css";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 
 const STEPS = ["1", "2"] as const;
 type Step = (typeof STEPS)[number];
@@ -286,10 +287,7 @@ export default function GapRecordSheet({
                   {t("common.amount")}
                   <RequiredMark />
                 </Label>
-                <InputGroup>
-                  <Input id="gap-amount" aria-required type="text" inputMode="decimal" autoComplete="off" value={draft.amount} invalid={tried && problem === "accounts.gap.needAmount"} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                </InputGroup>
+                <MoneyInput id="gap-amount" required type="text" currency={baseCurrency} value={draft.amount} invalid={tried && problem === "accounts.gap.needAmount"} onChange={(amount) => setDraft({ ...draft, amount })} onFocus={(e) => e.currentTarget.select()} />
               </FormGroup>
 
               {(draft.kind === "expense" || draft.kind === "income") && (

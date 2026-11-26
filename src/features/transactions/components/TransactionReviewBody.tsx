@@ -47,6 +47,11 @@ export interface TransactionReviewBodyProps {
   dateFormatted: string;
   notes?: string;
   fuelCells?: FuelCell[];
+  /**
+   * The expense of a CLEARING bill (owner, 2026-11-26): one more box saying it
+   * closed several months at once, and which — «Κλείνει 4 μήνες: Ιούλ – Οκτ 2026».
+   */
+  clearing?: string;
   hideCategoryLabel?: boolean;
   gradientFrom?: string;
   gradientTo?: string;
@@ -72,6 +77,7 @@ export function TransactionReviewBody({
   dateFormatted,
   notes,
   fuelCells,
+  clearing,
   hideCategoryLabel = false,
   gradientFrom,
   gradientTo,
@@ -176,6 +182,7 @@ export function TransactionReviewBody({
         <GridCell label={t("common.type")} value={primaryBadge} accent={colors.amtTxt} />
         {account && <GridCell label={account.label} value={account.name} />}
         {recordedAt && <GridCell label={t("transactions.view.recorded")} value={recordedAt} />}
+        {clearing && <GridCell label={t("bills.clear.boxLabel")} value={clearing} fullWidth />}
         {notes && <GridCell label={t("common.notes")} value={notes} fullWidth />}
       </div>
 

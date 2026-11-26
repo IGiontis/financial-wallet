@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCalendar, FiCheck, FiRotateCcw, FiSlash } from "react-icons/fi";
 import { DateField } from "../../../shared/components/DateField";
@@ -14,6 +14,7 @@ import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { asNumber } from "../../../shared/utils/sameValues";
 import { currencySymbol } from "../../../shared/utils/currency";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 
 // «Αυτή τη φορά…», from a row's ⋮: what can be said about one time only — it
 // comes on another day, with another amount, or not at all — as on the
@@ -81,10 +82,7 @@ export default function ThisTimeSheet({
 
         {mode === "amount" && (
           <div className="d-flex gap-2 align-items-start">
-            <InputGroup size="sm">
-              <Input type="number" min={0.01} step={0.01} inputMode="decimal" value={amountValue} onChange={(e) => setAmountValue(e.target.value)} aria-label={t("incomes.card.otherAmount")} />
-              <InputGroupText>{sign}</InputGroupText>
-            </InputGroup>
+            <MoneyInput size="sm" value={amountValue} onChange={setAmountValue} ariaLabel={t("incomes.card.otherAmount")} />
             <Button color="primary" size="sm" disabled={!(typed > 0) || sameAmount} onClick={() => say({ amount: Math.round((baseCurrency === displayCurrency ? typed : convertToBase(typed)) * 100) / 100 })}>
               {t("common.save")}
             </Button>

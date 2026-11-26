@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, FormFeedback, FormGroup, FormText, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Alert, Button, FormFeedback, FormGroup, FormText, Input, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { DateField } from "../../shared/components/DateField";
@@ -26,6 +26,7 @@ import { DialogFooter } from "../../shared/components/DialogFooter";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
@@ -456,26 +457,13 @@ export default function ContributionWizard({
               )}
               <FormGroup className="mb-2">
                 <Label for="contribution-amount" className="small fw-medium">
-                  {t("investments.amountLabel", { currency: displayCurrency })}
+                  {t("common.amount")}
                   <RequiredMark />
                 </Label>
-                <InputGroup>
-                  <Input
-                    id="contribution-amount"
-                    aria-required
-                    autoFocus
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    inputMode="decimal"
-                    value={amount}
-                    disabled={full}
-                    invalid={tried && (!!amountError || overFree)}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
+                <MoneyInput id="contribution-amount" required autoFocus min={0} value={amount} disabled={full} invalid={tried && (!!amountError || overFree)} onChange={setAmount}>
                   {!deposit && <InputGroupText>{t("goalWizard.of", { amount: format(available) })}</InputGroupText>}
                   <FormFeedback>{amountError}</FormFeedback>
-                </InputGroup>
+                </MoneyInput>
                 {/* More than the chosen card has free: said as it is typed. */}
                 {overFree && cardFree && (
                   <div className="invalid-feedback d-block" role="alert">
@@ -514,7 +502,7 @@ export default function ContributionWizard({
                   <Label for="contribution-gain" className="small fw-medium">
                     {t("investments.profitLabel", { currency: displayCurrency })}
                   </Label>
-                  <Input id="contribution-gain" type="number" min={0} step="0.01" inputMode="decimal" value={gain} onChange={(e) => setGain(e.target.value)} placeholder="0" />
+                  <MoneyInput id="contribution-gain" min={0} value={gain} onChange={setGain} />
                   <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.profitHint", { amount: format(balance) })}</FormText>
                 </FormGroup>
               )}

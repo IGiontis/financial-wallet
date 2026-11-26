@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { Link } from "react-router-dom";
-import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { SavedCheck } from "./SavedCheck";
@@ -24,6 +24,7 @@ import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { asNumber } from "../../../shared/utils/sameValues";
@@ -317,11 +318,9 @@ export default function TransferWizard({
                   {t("common.amount")}
                   <RequiredMark />
                 </Label>
-                <InputGroup>
-                  <Input id="transfer-amount" aria-required type="number" inputMode="decimal" min={0} step="0.01" autoFocus value={amount} invalid={(tried && problem === "amount") || spend.blocked} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
-                  <InputGroupText>{baseCurrency}</InputGroupText>
+                <MoneyInput id="transfer-amount" required min={0} autoFocus currency={baseCurrency} value={amount} invalid={(tried && problem === "amount") || spend.blocked} onChange={setAmount}>
                   <FormFeedback>{t("transactions.transfer.amountNeeded")}</FormFeedback>
-                </InputGroup>
+                </MoneyInput>
                 <SpendNote check={spend} />
               </FormGroup>
               <FormGroup>

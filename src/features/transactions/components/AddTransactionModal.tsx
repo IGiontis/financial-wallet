@@ -34,6 +34,7 @@ import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL, moneyToneHead, type MoneyTone } from "../../../shared/components/formModal";
 import { DialogFooter } from "../../../shared/components/DialogFooter";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { MoneyInput } from "../../../shared/components/MoneyInput";
 import { dayToDate, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay } from "../../../shared/utils/dates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
@@ -512,17 +513,21 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             <Row className="g-3">
               <Col xs={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.amount")} ({displayCurrency})
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.amount")}
                     <RequiredMark />
                   </Label>
-                  <Input
-                    type="number" name="amount" min={0.01} step={0.01} placeholder="0.00" aria-required
-                    value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
+                  {/* Stored as Formik's handleChange stores a number box: "" or a number. */}
+                  <MoneyInput
+                    name="amount" required
+                    value={formik.values.amount}
+                    onChange={(v) => formik.setFieldValue("amount", v === "" ? "" : Number(v))}
+                    onBlur={() => formik.setFieldTouched("amount", true)}
                     readOnly={formik.values.showFuelDetails}
-                    style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
+                    inputStyle={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                     invalid={!!(formik.touched.amount && formik.errors.amount) || spend.blocked}
-                  />
-                  <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                  >
+                    <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                  </MoneyInput>
                 </FormGroup>
               </Col>
               <Col xs={6}>
@@ -607,7 +612,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 quantity={formik.values.quantity} odometer={formik.values.odometer} place={formik.values.place}
                 errors={{ fuelType: formik.errors.fuelType, pricePerUnit: formik.errors.pricePerUnit as string | undefined, quantity: formik.errors.quantity as string | undefined, odometer: formik.errors.odometer as string | undefined, place: formik.errors.place }}
                 touched={{ fuelType: formik.touched.fuelType, pricePerUnit: formik.touched.pricePerUnit, quantity: formik.touched.quantity, odometer: formik.touched.odometer, place: formik.touched.place }}
-                setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched} displayCurrency={displayCurrency}
+                setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched}
               />
             )}
 

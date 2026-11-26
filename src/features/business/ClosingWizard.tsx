@@ -8,6 +8,7 @@ import { DeleteButton } from "../../shared/components/DeleteButton";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { DialogFooter } from "../../shared/components/DialogFooter";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -272,17 +273,14 @@ export default function ClosingWizard({
               {l.name}
               {l.removed && <span className="text-body-secondary fw-normal"> · {t("business.lineRemovedTag")}</span>}
             </Label>
-            <Input
+            <MoneyInput
               id={fieldId}
-              type="number"
               min={0}
-              step="0.01"
-              inputMode="decimal"
-              className={styles.moneyInput}
+              inputClassName={styles.moneyInput}
               placeholder={t("business.amountPlaceholder")}
               value={text}
               invalid={tried(kind) && !amountOk(text)}
-              onChange={(e) => setAmount(l.id, e.target.value)}
+              onChange={(typed) => setAmount(l.id, typed)}
             />
           </li>
         );
@@ -420,18 +418,15 @@ export default function ClosingWizard({
                         <button type="button" className={styles.lineRemove} onClick={() => setOneOffs((all) => all.filter((x) => x.key !== o.key))} aria-label={t("business.lineRemove", { n: i + 1 })} title={t("business.lineRemove", { n: i + 1 })}>
                           <FiX aria-hidden />
                         </button>
-                        <Input
+                        <MoneyInput
                           className={styles.lineAmount}
-                          type="number"
                           min={0}
-                          step="0.01"
-                          inputMode="decimal"
-                          aria-label={`${t("common.amount")} (${displayCurrency})`}
-                          aria-required
+                          ariaLabel={t("common.amount")}
+                          required
                           placeholder={t("business.amountPlaceholder")}
                           value={o.amount}
                           invalid={bad && !(amountOk(o.amount) && amountOf(o.amount) > 0)}
-                          onChange={(e) => setOneOff(o.key, { amount: e.target.value })}
+                          onChange={(amount) => setOneOff(o.key, { amount })}
                         />
                       </li>
                     );

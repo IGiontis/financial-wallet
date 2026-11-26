@@ -35,6 +35,7 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
@@ -115,15 +116,20 @@ export default function AddDebtModal({
   const [step, setStep] = useState<Step>("who");
   const [direction, setDirection] = useState<DebtDirection>(debt?.direction ?? "owed_by_me");
   const [person, setPerson] = useState(debt?.person ?? defaultPerson ?? "");
+  // Opened from a person's own page, the person is already said: it is shown
+  // and locked, so a new debt cannot land on someone else by a slip. Which way
+  // it goes is still asked (owner, 2026-11-26).
+  const personLocked = !debt && !!defaultPerson;
   const [label, setLabel] = useState(debt?.label ?? "");
   const [amount, setAmount] = useState(asInput(debt?.amount));
   const [date, setDate] = useState(() => (debt ? toISODay(debt.date) : today()));
   const [dueDate, setDueDate] = useState(() => (debt?.dueDate ? toISODay(debt.dueDate) : ""));
   // A term is what made it a loan when it was saved (see below), so it is what
   // answers the question for a saved debt.
-  // «Με τόκο;» starts on «Ναι» on a new debt (owner, 2026-11-12) — it moves no money:
-  // with no term typed it is still saved as a plain debt, and the step says so.
-  const [withInterest, setWithInterest] = useState<boolean | undefined>(debt ? (debt.termMonths ?? 0) > 0 : true);
+  // «Με τόκο;» starts on «Όχι» — a plain debt — on every new debt (owner,
+  // 2026-11-26, replacing the «Ναι» of 2026-11-12): most debts between people
+  // carry no interest, and a loan is the one that has to be said out loud.
+  const [withInterest, setWithInterest] = useState<boolean | undefined>(debt ? (debt.termMonths ?? 0) > 0 : false);
   const [rateType, setRateType] = useState<DebtRateType>(debt?.rateType ?? "fixed");
   const [rate, setRate] = useState(debt?.rateType === "floating" ? "" : asInput(debt?.interestRate));
   const [base, setBase] = useState(asInput(debt?.baseRate));
@@ -474,6 +480,7 @@ export default function AddDebtModal({
                     differently started a second person with the debts split. */}
                 <PayeeInput
                   required
+                  disabled={personLocked}
                   value={person}
                   payees={knownPeople}
                   onChange={setPerson}
@@ -482,6 +489,7 @@ export default function AddDebtModal({
                   wording={{ field: "debts.person", useTyped: "debts.useTypedPerson", empty: "debts.noPersonMatches" }}
                 />
                 {touched && !personOk && <div className="invalid-feedback d-block">{t("debts.addWizard.personNeeded")}</div>}
+                {personLocked && <div className="form-text">{t("debts.addWizard.personLocked", { name: person })}</div>}
               </FormGroup>
 
               <FormGroup className="mb-0">
@@ -679,11 +687,9 @@ export default function AddDebtModal({
                   {t("common.amount")}
                   <RequiredMark />
                 </Label>
-                <InputGroup>
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                  <Input id="debt-amount" aria-required type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
+                <MoneyInput id="debt-amount" required min={0} currency={baseCurrency} value={amount} onChange={setAmount} invalid={touched && !amountOk}>
                   <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
-                </InputGroup>
+                </MoneyInput>
                 <SpendNote check={spend} />
               </FormGroup>
 

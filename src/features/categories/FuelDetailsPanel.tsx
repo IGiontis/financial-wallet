@@ -6,6 +6,7 @@ import { validationMessage } from "../../shared/utils/validationMessage";
 import { FUEL_TYPES, getUnitLabel } from "./fuelTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { MoneyInput } from "../../shared/components/MoneyInput";
 
 interface FuelDetailsPanelProps {
   fuelType: FuelType | "";
@@ -29,10 +30,9 @@ interface FuelDetailsPanelProps {
   }>;
   setFieldValue: (field: string, value: string | number) => void;
   setFieldTouched: (field: string, touched?: boolean) => void;
-  displayCurrency: string;
 }
 
-export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, place, errors, touched, setFieldValue, setFieldTouched, displayCurrency }: FuelDetailsPanelProps) {
+export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, place, errors, touched, setFieldValue, setFieldTouched }: FuelDetailsPanelProps) {
   const { t, i18n } = useTranslation();
   // The total is worked out in the display currency, so it is shown as it is.
   const money = useCurrencyConverter();
@@ -97,21 +97,22 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         <Col xs={6}>
           <FormGroup className="mb-0">
             <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
-              {t("transactions.pricePerUnitLabel", { unit })} ({displayCurrency})
+              {t("transactions.pricePerUnitLabel", { unit })}
               <RequiredMark />
             </Label>
-            <Input
-              type="number"
-              aria-required
+            {/* A pump price has three decimals. */}
+            <MoneyInput
+              required
               min={0.001}
               step={0.001}
-              placeholder="0.000"
+              placeholder="0,000"
               value={pricePerUnit}
-              onChange={(e) => setFieldValue("pricePerUnit", e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(v) => setFieldValue("pricePerUnit", v === "" ? "" : Number(v))}
               onBlur={() => setFieldTouched("pricePerUnit", true)}
               invalid={!!(touched.pricePerUnit && errors.pricePerUnit)}
-            />
-            <FormFeedback>{validationMessage(errors.pricePerUnit, t)}</FormFeedback>
+            >
+              <FormFeedback>{validationMessage(errors.pricePerUnit, t)}</FormFeedback>
+            </MoneyInput>
           </FormGroup>
         </Col>
         <Col xs={6}>
